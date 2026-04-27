@@ -4,7 +4,7 @@
 # permitir este archivo
 !.gitignore
 
-# permitir carpetas que sí quieres subir
+# permitir carpetas que sí hay que subir
 !BACKEND/
 !BACKEND/**
 !proyecto-VR/
@@ -13,3 +13,6 @@
 # opcional: si dentro de BACKEND tienes .env, no subirlo
 BACKEND/.env
 BACKEND/.env.*
+
+
+

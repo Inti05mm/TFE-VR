@@ -5,8 +5,9 @@ import PatientViewHeader from "./PatientViewHeader";
 import PatientDetailsContainer from "./PatientDetail";
 import PatientMetricsContainer from "./PatientMetricsContainer";
 import SessionDetailContainer from "./SessionDetailContainer";
+import VRExercisesContainer from "./VRExercisesContainer";
 
-type PatientTab = "details" | "metrics" | "sessions";
+type PatientTab = "details" | "metrics" | "sessions" | "vr";
 type SessionView = "list" | "detail";
 
 type SessionRow = {
@@ -621,6 +622,14 @@ export default function PatientProfileContainer({
             onViewDetail={handleOpenSessionDetail}
           />
         );
+
+        case "vr":
+  return (
+    <VRExercisesContainer
+      patientId={patient.id}
+      patientName={`${patient.first_name} ${patient.last_name || ""}`}
+    />
+  );
 
       default:
         return null;

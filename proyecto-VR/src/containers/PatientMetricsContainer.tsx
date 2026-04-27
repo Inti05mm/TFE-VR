@@ -67,7 +67,11 @@ export default function PatientMetricsContainer({
         `
         )
         .eq("patient_id", patientId)
-        .order("started_at", { ascending: true });
+        .order("started_at", { ascending: false });
+
+console.log("PATIENT ID:", patientId);
+console.log("SESSIONS DATA:", sessionsData);
+console.log("ERROR:", error);
 
       if (error) {
         console.error("Error cargando métricas del paciente:", error);

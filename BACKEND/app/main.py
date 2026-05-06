@@ -1,4 +1,5 @@
 from typing import Optional
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Query
 from .supabase_client import supabase
 from .schemas import (
@@ -8,9 +9,31 @@ from .schemas import (
     SessionResultCreate,
 )
 
+
 app = FastAPI(title="NeuroVision API")
 
+#app.add_middleware(
+#    CORSMiddleware,
+#    allow_origins=[
+#        "http://localhost:5173",
+#        "http://127.0.0.1:5173",
+#    ],
+#    allow_credentials=True,
+#    allow_methods=["*"],
+#    allow_headers=["*"],
+#)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://192.168.1.133:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.get("/")
 def root():
     return {"message": "API funcionando correctamente"}
@@ -219,28 +242,27 @@ def save_session_results(result: SessionResultCreate):
             )
 
         metrics_payload = {
-            "session_id": result.session_id,
-            "total_trials": result.total_trials,
-            "completed_trials": total_hits,
-            "correct_trials": total_hits,
-            "omitted_trials": omitted_trials,
-            "omissions_left": omissions_left,
-            "omissions_right": omissions_right,
+    "session_id": result.session_id,
+    "total_trials": result.total_trials,
+    "completed_trials": total_hits,
+    "correct_trials": total_hits,
+    "omitted_trials": omitted_trials,
+    "omissions_left": omissions_left,
+    "omissions_right": omissions_right,
 
-            # Unity actualmente no mide estas métricas
-            "mean_detection_latency_ms": None,
-            "mean_first_fixation_latency_ms": None,
-            "mean_search_time_ms": None,
-            "exploration_bias_score": None,
-            "extinction_index": None,
-            "neglect_severity_score": None,
+    # Unity actualmente no mide estas métricas
+    "mean_detection_latency_ms": None,
+    "mean_first_fixation_latency_ms": None,
+    "mean_search_time_ms": None,
+    "exploration_bias_score": None,
+    "extinction_index": None,
+    "neglect_severity_score": None,
 
-            # Métricas que sí vienen de Unity
-            "detection_rate": detection_rate_percent,
-            "precision_left": precision_left_percent,
-            "precision_center": 0,
-            "precision_right": precision_right_percent,
-        }
+    # Métricas que sí vienen de Unity
+    "detection_rate": detection_rate_percent,
+    "precision_left": precision_left_percent,
+    "precision_right": precision_right_percent,
+}
 
         metrics_response = (
             supabase.table("session_metrics")

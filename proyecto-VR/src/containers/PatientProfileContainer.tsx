@@ -32,13 +32,11 @@ type SessionMetricsRow = {
   mean_search_time_ms: number | null;
   left_dwell_ratio: number | null;
   right_dwell_ratio: number | null;
-  center_dwell_ratio: number | null;
   exploration_bias_score: number | null;
   extinction_index: number | null;
   neglect_severity_score: number | null;
   detection_rate: number | null;
   precision_left: number | null;
-  precision_center: number | null;
   precision_right: number | null;
 };
 
@@ -49,16 +47,6 @@ type SessionConfigRow = {
   dynamic_adaptation: boolean | null;
   device: string | null;
   target_duration_seconds: number | null;
-};
-
-type TrialMetricRow = {
-  detection_latency_ms: number | null;
-  first_fixation_latency_ms: number | null;
-  fixation_duration_ms: number | null;
-  total_search_time_ms: number | null;
-  fixation_count_left: number | null;
-  fixation_count_right: number | null;
-  fixation_count_center: number | null;
 };
 
 type TrialRow = {
@@ -76,7 +64,6 @@ type TrialRow = {
   assistance_used: boolean | null;
   assistance_type: string | null;
   response_label: string | null;
-  trial_metrics: TrialMetricRow | TrialMetricRow[] | null;
 };
 
 type SessionDetailData = {
@@ -186,8 +173,6 @@ export default function PatientProfileContainer({
         return "Izquierda";
       case "right":
         return "Derecha";
-      case "center":
-        return "Centro";
       case "bilateral":
         return "Bilateral";
       default:
@@ -286,13 +271,11 @@ export default function PatientProfileContainer({
             mean_search_time_ms,
             left_dwell_ratio,
             right_dwell_ratio,
-            center_dwell_ratio,
             exploration_bias_score,
             extinction_index,
             neglect_severity_score,
             detection_rate,
             precision_left,
-            precision_center,
             precision_right
           `)
           .eq("session_id", selectedSessionId)
@@ -327,16 +310,7 @@ export default function PatientProfileContainer({
             omitted,
             assistance_used,
             assistance_type,
-            response_label,
-            trial_metrics (
-              detection_latency_ms,
-              first_fixation_latency_ms,
-              fixation_duration_ms,
-              total_search_time_ms,
-              fixation_count_left,
-              fixation_count_right,
-              fixation_count_center
-            )
+            response_label
           `)
           .eq("session_id", selectedSessionId)
           .order("trial_number", { ascending: true }),
@@ -371,25 +345,6 @@ export default function PatientProfileContainer({
         setLoadingSessionDetail(false);
         return;
       }
-
-      const normalizedTrialMetrics = trials
-        .map((trial) =>
-          Array.isArray(trial.trial_metrics)
-            ? trial.trial_metrics[0] ?? null
-            : trial.trial_metrics
-        )
-        .filter((metric): metric is TrialMetricRow => metric != null);
-
-      const detectionLatencies = normalizedTrialMetrics
-        .map((tm) => tm.detection_latency_ms)
-        .filter((value): value is number => value != null);
-
-      const fixationCounts = normalizedTrialMetrics.reduce((acc, tm) => {
-        const left = tm.fixation_count_left ?? 0;
-        const right = tm.fixation_count_right ?? 0;
-        const center = tm.fixation_count_center ?? 0;
-        return acc + left + right + center;
-      }, 0);
 
       const leftDetections = trials.filter(
         (trial) => trial.stimulus_side === "left" && trial.detected === true
@@ -475,20 +430,12 @@ export default function PatientProfileContainer({
       ];
 
       const events = trials.map((trial) => {
-        const tm = Array.isArray(trial.trial_metrics)
-          ? trial.trial_metrics[0] ?? null
-          : trial.trial_metrics;
-
         let result = "Sin registrar";
         if (trial.omitted) result = "Omisión";
         else if (trial.detected) result = "Detectado";
         else if (trial.correct === false) result = "Incorrecto";
 
         const detailsParts: string[] = [];
-
-        if (tm?.detection_latency_ms != null) {
-          detailsParts.push(`Tiempo de detección: ${tm.detection_latency_ms} ms`);
-        }
 
         if (trial.assistance_used) {
           detailsParts.push(`Asistencia: ${trial.assistance_type || "Sí"}`);
@@ -532,11 +479,9 @@ export default function PatientProfileContainer({
           leftDetections,
           rightDetections,
           centerDetections,
-          reactionTimeMin:
-            detectionLatencies.length > 0 ? Math.min(...detectionLatencies) : null,
-          reactionTimeMax:
-            detectionLatencies.length > 0 ? Math.max(...detectionLatencies) : null,
-          fixationCount: fixationCounts,
+          reactionTimeMin: null,
+          reactionTimeMax: null,
+          fixationCount: 0,
           accuracy,
         },
         events,
@@ -577,9 +522,7 @@ export default function PatientProfileContainer({
         return <PatientDetailsContainer patient={patient} />;
 
       case "metrics":
-        return (
-          <PatientMetricsContainer patientId={patient.id} mode="metrics" />
-        );
+        return <PatientMetricsContainer patientId={patient.id} mode="metrics" />;
 
       case "sessions":
         if (sessionView === "detail" && selectedSessionId) {
@@ -623,13 +566,13 @@ export default function PatientProfileContainer({
           />
         );
 
-        case "vr":
-  return (
-    <VRExercisesContainer
-      patientId={patient.id}
-      patientName={`${patient.first_name} ${patient.last_name || ""}`}
-    />
-  );
+      case "vr":
+        return (
+          <VRExercisesContainer
+            patientId={patient.id}
+            patientName={`${patient.first_name} ${patient.last_name || ""}`}
+          />
+        );
 
       default:
         return null;
@@ -657,9 +600,7 @@ export default function PatientProfileContainer({
               </span>
             </div>
 
-            <p className="text-gray-500 mt-4">
-              Vista general del paciente
-            </p>
+            <p className="text-gray-500 mt-4">Vista general del paciente</p>
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -680,10 +621,7 @@ export default function PatientProfileContainer({
         </div>
       </div>
 
-      <PatientViewHeader
-        activeTab={activeTab}
-        onChangeTab={handleChangeTab}
-      />
+      <PatientViewHeader activeTab={activeTab} onChangeTab={handleChangeTab} />
 
       <div className="transition-all duration-300 ease-in-out animate-fadeIn">
         {renderTabContent()}

@@ -118,12 +118,7 @@ export default function MetricsPanel({
           </h3>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Precisión centro</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? `${latest.precisionCenter.toFixed(1)}%` : "--"}
-          </h3>
-        </div>
+    
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
           <p className="text-sm text-gray-500">Precisión derecha</p>
@@ -246,7 +241,7 @@ export default function MetricsPanel({
               Precisión por lado visual
             </h3>
             <p className="text-sm text-gray-500">
-              Comparativa izquierda, centro y derecha
+              Comparativa izquierda y derecha
             </p>
           </div>
 
@@ -260,7 +255,6 @@ export default function MetricsPanel({
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="precisionLeft" name="Izquierda" />
-                  <Bar dataKey="precisionCenter" name="Centro" />
                   <Bar dataKey="precisionRight" name="Derecha" />
                 </BarChart>
               </ResponsiveContainer>
@@ -291,12 +285,6 @@ export default function MetricsPanel({
             </p>
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <p className="text-sm text-gray-500">Precisión media centro</p>
-            <p className="text-xl font-semibold text-gray-800 mt-1">
-              {data.length > 0 ? `${avgPrecisionCenter.toFixed(1)}%` : "--"}
-            </p>
-          </div>
 
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <p className="text-sm text-gray-500">Precisión media derecha</p>

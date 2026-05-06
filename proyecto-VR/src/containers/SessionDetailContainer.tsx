@@ -164,7 +164,7 @@ export default function SessionDetailContainer({
           <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 min-w-[180px]">
             <p className="text-sm text-blue-700 font-medium">Puntuación final</p>
             <p className="text-3xl font-bold text-blue-800 mt-1">
-              {formatScore(session.score)}
+              {formatScore((session.score)*2)}
             </p>
           </div>
         </div>

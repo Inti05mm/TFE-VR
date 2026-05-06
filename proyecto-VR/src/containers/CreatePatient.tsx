@@ -65,19 +65,24 @@ export default function CreatePatient() {
     try {
       setLoading(true);
 
-      // Si luego quieres asociarlo al médico logueado:
-      // const {
-      //   data: { user },
-      // } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        setErrorMsg("No hay un médico autenticado.");
+        return;
+      }
 
       const { error } = await supabase.from("patients").insert({
-        first_name: form.firstName,
-        last_name: form.lastName || null,
-        dni: form.dni,
+        first_name: form.firstName.trim(),
+        last_name: form.lastName.trim() || null,
+        dni: form.dni.trim(),
         password: form.password,
         neglect_side: form.neglectSide || null,
         severity: Number(form.severity) || 1,
-        // doctor_id: user?.id ?? null,
+        doctor_id: user.id,
       });
 
       if (error) {

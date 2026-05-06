@@ -10,7 +10,6 @@ type SessionMetricsRow = {
   exploration_bias_score: number | null;
   detection_rate: number | null;
   precision_left: number | null;
-  precision_center: number | null;
   precision_right: number | null;
 };
 
@@ -61,7 +60,6 @@ export default function PatientMetricsContainer({
             exploration_bias_score,
             detection_rate,
             precision_left,
-            precision_center,
             precision_right
           )
         `
@@ -103,7 +101,6 @@ console.log("ERROR:", error);
             explorationBias: metrics?.exploration_bias_score ?? 0,
             detectionRate: Number(metrics?.detection_rate ?? 0),
             precisionLeft: Number(metrics?.precision_left ?? 0),
-            precisionCenter: Number(metrics?.precision_center ?? 0),
             precisionRight: Number(metrics?.precision_right ?? 0),
           };
         }

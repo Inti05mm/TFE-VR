@@ -155,7 +155,7 @@ export default function PatientSession({
                   </td>
 
                   <td className="py-4 pr-4 font-semibold text-gray-800">
-                    {formatScore(item.score)}
+                    {formatScore((item.score)*2)}
                   </td>
 
                   <td className="py-4 pr-4">

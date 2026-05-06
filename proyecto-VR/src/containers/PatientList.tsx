@@ -39,12 +39,25 @@ export default function ListaPacientes({
     setLoading(true);
     setError("");
 
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setError("No hay un médico autenticado.");
+      setPatients([]);
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase
-  .from("patients")
-  .select(
-    "id, first_name, last_name, dni, neglect_side, severity, doctor_id, created_at, updated_at, birth_date, sex, clinical_notes"
-  )
-  .order("created_at", { ascending: false });
+      .from("patients")
+      .select(
+        "id, first_name, last_name, dni, neglect_side, severity, doctor_id, created_at, updated_at, birth_date, sex, clinical_notes"
+      )
+      .eq("doctor_id", user.id)
+      .order("created_at", { ascending: false });
 
     if (error) {
       setError("Error al cargar los pacientes.");
@@ -106,7 +119,7 @@ export default function ListaPacientes({
             Lista de pacientes
           </h1>
           <p className="text-gray-500 mt-1">
-            Aquí puedes consultar todos los pacientes registrados.
+            Aquí puedes consultar tus pacientes registrados.
           </p>
         </div>
       </div>
@@ -211,4 +224,4 @@ export default function ListaPacientes({
       )}
     </div>
   );
-} 
+}

@@ -7,10 +7,14 @@ type SessionMetricsRow = {
   mean_detection_latency_ms: number | null;
   omissions_left: number | null;
   omissions_right: number | null;
-  exploration_bias_score: number | null;
   detection_rate: number | null;
   precision_left: number | null;
   precision_right: number | null;
+
+  hit_left: number | null;
+  hit_right: number | null;
+  total_left: number | null;
+  total_right: number | null;
 };
 
 type SessionRow = {
@@ -29,6 +33,23 @@ type PatientMetricsContainerProps = {
   mode: "metrics" | "sessions";
   onViewDetail?: (sessionId: string) => void;
 };
+
+function hasValidMetrics(metrics: SessionMetricsRow | null) {
+  if (!metrics) return false;
+
+  return (
+    metrics.detection_rate !== null &&
+    metrics.detection_rate !== undefined &&
+    metrics.precision_left !== null &&
+    metrics.precision_left !== undefined &&
+    metrics.precision_right !== null &&
+    metrics.precision_right !== undefined
+  );
+}
+
+function toNumberOrNull(value: number | null | undefined) {
+  return value !== null && value !== undefined ? Number(value) : null;
+}
 
 export default function PatientMetricsContainer({
   patientId,
@@ -57,19 +78,22 @@ export default function PatientMetricsContainer({
             mean_detection_latency_ms,
             omissions_left,
             omissions_right,
-            exploration_bias_score,
             detection_rate,
             precision_left,
-            precision_right
+            precision_right,
+            hit_left,
+            hit_right,
+            total_left,
+            total_right
           )
         `
         )
         .eq("patient_id", patientId)
         .order("started_at", { ascending: false });
 
-console.log("PATIENT ID:", patientId);
-console.log("SESSIONS DATA:", sessionsData);
-console.log("ERROR:", error);
+      console.log("PATIENT ID:", patientId);
+      console.log("SESSIONS DATA:", sessionsData);
+      console.log("ERROR:", error);
 
       if (error) {
         console.error("Error cargando métricas del paciente:", error);
@@ -78,35 +102,85 @@ console.log("ERROR:", error);
         return;
       }
 
-      const formatted: SessionMetric[] = ((sessionsData ?? []) as SessionRow[]).map(
-        (item, index) => {
-          const metrics = Array.isArray(item.session_metrics)
-            ? item.session_metrics[0]
-            : item.session_metrics;
+      const formattedAll: SessionMetric[] = (
+        (sessionsData ?? []) as SessionRow[]
+      ).map((item, index) => {
+        const metrics = Array.isArray(item.session_metrics)
+          ? item.session_metrics[0] ?? null
+          : item.session_metrics;
 
-          return {
-            sessionId: item.id,
+        return {
+          sessionId: item.id,
+          sessionLabel: `S${index + 1}`,
+          startedAt: item.started_at,
+
+          sessionType: item.session_type,
+          durationSeconds: item.duration_seconds,
+          score: item.score,
+          incidents: item.incidents,
+          notes: item.notes,
+
+          meanDetection: toNumberOrNull(metrics?.mean_detection_latency_ms),
+
+          omissionsLeft: metrics?.omissions_left ?? null,
+          omissionsRight: metrics?.omissions_right ?? null,
+          detectionRate: toNumberOrNull(metrics?.detection_rate),
+          precisionLeft: toNumberOrNull(metrics?.precision_left),
+          precisionRight: toNumberOrNull(metrics?.precision_right),
+
+          totalLeft: metrics?.total_left ?? null,
+          totalRight: metrics?.total_right ?? null,
+          leftDetections: metrics?.hit_left ?? null,
+          rightDetections: metrics?.hit_right ?? null,
+        };
+      });
+
+      if (mode === "metrics") {
+        const formattedForMetrics = ((sessionsData ?? []) as SessionRow[])
+          .map((item) => {
+            const metrics = Array.isArray(item.session_metrics)
+              ? item.session_metrics[0] ?? null
+              : item.session_metrics;
+
+            if (!hasValidMetrics(metrics)) return null;
+
+            return {
+              sessionId: item.id,
+              sessionLabel: "",
+              startedAt: item.started_at,
+
+              sessionType: item.session_type,
+              durationSeconds: item.duration_seconds,
+              score: item.score,
+              incidents: item.incidents,
+              notes: item.notes,
+
+              meanDetection: toNumberOrNull(metrics?.mean_detection_latency_ms),
+
+              omissionsLeft: metrics?.omissions_left ?? null,
+              omissionsRight: metrics?.omissions_right ?? null,
+              detectionRate: toNumberOrNull(metrics?.detection_rate),
+              precisionLeft: toNumberOrNull(metrics?.precision_left),
+              precisionRight: toNumberOrNull(metrics?.precision_right),
+
+              totalLeft: metrics?.total_left ?? null,
+              totalRight: metrics?.total_right ?? null,
+              leftDetections: metrics?.hit_left ?? null,
+              rightDetections: metrics?.hit_right ?? null,
+            } as SessionMetric;
+          })
+          .filter((item): item is SessionMetric => item !== null)
+          .reverse()
+          .map((item, index) => ({
+            ...item,
             sessionLabel: `S${index + 1}`,
-            startedAt: item.started_at,
+          }));
 
-            sessionType: item.session_type,
-            durationSeconds: item.duration_seconds,
-            score: item.score,
-            incidents: item.incidents,
-            notes: item.notes,
+        setData(formattedForMetrics);
+      } else {
+        setData(formattedAll);
+      }
 
-            meanDetection: metrics?.mean_detection_latency_ms ?? 0,
-            omissionsLeft: metrics?.omissions_left ?? 0,
-            omissionsRight: metrics?.omissions_right ?? 0,
-            explorationBias: metrics?.exploration_bias_score ?? 0,
-            detectionRate: Number(metrics?.detection_rate ?? 0),
-            precisionLeft: Number(metrics?.precision_left ?? 0),
-            precisionRight: Number(metrics?.precision_right ?? 0),
-          };
-        }
-      );
-
-      setData(formatted);
       setLoading(false);
     };
 
@@ -117,7 +191,7 @@ console.log("ERROR:", error);
     }
 
     fetchMetrics();
-  }, [patientId]);
+  }, [patientId, mode]);
 
   if (mode === "sessions") {
     return (

@@ -65,28 +65,23 @@ export default function PatientSession({
     return `${minutes} min ${seconds}s`;
   };
 
-  const formatScore = (score: number | null) => {
-    if (score === null || score === undefined) return "-";
+  const formatScore = (score: number | null | undefined) => {
+    if (score === null || score === undefined || Number.isNaN(score)) return "-";
     return Number(score).toFixed(1);
   };
 
-  const formatIncidents = (incidents: string | null) => {
-    if (!incidents || incidents.trim() === "") return "Sin incidencias";
-    return incidents;
-  };
+  const formatPercent = (value: number | null | undefined) => {
+    if (value === null || value === undefined || Number.isNaN(value)) return "-";
 
-  const getIncidentsCount = (incidents: string | null) => {
-    if (!incidents || incidents.trim() === "") return 0;
-    return incidents
-      .split(/[\n,;]+/)
-      .map((item) => item.trim())
-      .filter(Boolean).length;
+    const rounded = Number(value.toFixed(2));
+    return `${rounded}%`;
   };
 
   const safeNumber = (value: number | null | undefined, fallback = "-") => {
     if (value === null || value === undefined || Number.isNaN(value)) {
       return fallback;
     }
+
     return value;
   };
 
@@ -103,12 +98,13 @@ export default function PatientSession({
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">Sesiones</h2>
         <p className="text-gray-500 mt-1">
-          Historial de sesiones realizadas y resumen clínico de cada una.
+          Historial de sesiones realizadas. Selecciona una sesión para ver sus
+          métricas completas.
         </p>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse min-w-[1150px]">
+        <table className="w-full border-collapse min-w-[950px]">
           <thead>
             <tr className="border-b border-gray-200 text-left text-sm text-gray-500">
               <th className="py-3 pr-4 font-semibold">Sesión</th>
@@ -116,11 +112,9 @@ export default function PatientSession({
               <th className="py-3 pr-4 font-semibold">Tipo</th>
               <th className="py-3 pr-4 font-semibold">Duración</th>
               <th className="py-3 pr-4 font-semibold">Puntuación</th>
-              <th className="py-3 pr-4 font-semibold">Detección media</th>
+              <th className="py-3 pr-4 font-semibold">Tasa detección</th>
               <th className="py-3 pr-4 font-semibold">Omisiones izq.</th>
               <th className="py-3 pr-4 font-semibold">Omisiones der.</th>
-              <th className="py-3 pr-4 font-semibold">Bias</th>
-              <th className="py-3 pr-4 font-semibold">Incidencias</th>
               <th className="py-3 pr-4 font-semibold text-center">Acción</th>
             </tr>
           </thead>
@@ -155,14 +149,11 @@ export default function PatientSession({
                   </td>
 
                   <td className="py-4 pr-4 font-semibold text-gray-800">
-                    {formatScore((item.score)*2)}
+                    {item.score != null ? formatScore(item.score * 2) : "-"}
                   </td>
 
                   <td className="py-4 pr-4">
-                    {item.meanDetection !== null &&
-                    item.meanDetection !== undefined
-                      ? `${Math.round(item.meanDetection)} ms`
-                      : "-"}
+                    {formatPercent(item.detectionRate)}
                   </td>
 
                   <td className="py-4 pr-4">
@@ -171,24 +162,6 @@ export default function PatientSession({
 
                   <td className="py-4 pr-4">
                     {safeNumber(item.omissionsRight)}
-                  </td>
-
-                  <td className="py-4 pr-4">
-                    {item.explorationBias !== null &&
-                    item.explorationBias !== undefined
-                      ? item.explorationBias.toFixed(2)
-                      : "-"}
-                  </td>
-
-                  <td className="py-4 pr-4">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-gray-700">
-                        {getIncidentsCount(item.incidents)} incid.
-                      </span>
-                      <span className="text-xs text-gray-500 truncate max-w-[220px]">
-                        {formatIncidents(item.incidents)}
-                      </span>
-                    </div>
                   </td>
 
                   <td className="py-4 pr-4 text-center">
@@ -204,7 +177,7 @@ export default function PatientSession({
             ) : (
               <tr>
                 <td
-                  colSpan={11}
+                  colSpan={9}
                   className="py-8 text-center text-sm text-gray-400"
                 >
                   No hay sesiones registradas

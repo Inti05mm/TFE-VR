@@ -53,3 +53,5 @@ class SessionResultCreate(BaseModel):
     detection_rate: float
     precision_left: float
     precision_right: float
+
+    mean_detection_latency_ms: float | None = None

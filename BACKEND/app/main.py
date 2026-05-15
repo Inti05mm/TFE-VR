@@ -12,16 +12,6 @@ from .schemas import (
 
 app = FastAPI(title="NeuroVision API")
 
-#app.add_middleware(
-#    CORSMiddleware,
-#    allow_origins=[
-#        "http://localhost:5173",
-#        "http://127.0.0.1:5173",
-#    ],
-#    allow_credentials=True,
-#    allow_methods=["*"],
-#    allow_headers=["*"],
-#)
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,6 +24,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 @app.get("/")
 def root():
     return {"message": "API funcionando correctamente"}
@@ -171,7 +163,7 @@ def create_session(session: SessionStartCreate):
     try:
         patient_check = (
             supabase.table("patients")
-            .select("id")
+            .select("id, doctor_id")
             .eq("id", session.patient_id)
             .execute()
         )
@@ -179,15 +171,21 @@ def create_session(session: SessionStartCreate):
         if not patient_check.data:
             raise HTTPException(status_code=404, detail="Paciente no encontrado")
 
+        patient = patient_check.data[0]
+
         payload = {
             "patient_id": session.patient_id,
+            "doctor_id": patient.get("doctor_id"),
             "session_type": session.session_type,
         }
 
         response = supabase.table("sessions").insert(payload).execute()
 
         if not response.data:
-            raise HTTPException(status_code=400, detail="No se pudo crear la sesión")
+            raise HTTPException(
+                status_code=400,
+                detail="No se pudo crear la sesión",
+            )
 
         return {
             "session_id": response.data[0]["id"],
@@ -227,7 +225,6 @@ def save_session_results(result: SessionResultCreate):
                 {
                     "duration_seconds": result.duration_seconds,
                     "score": result.score,
-                    "notes": "Resultados recibidos desde Unity",
                 }
             )
             .eq("id", result.session_id)
@@ -242,27 +239,37 @@ def save_session_results(result: SessionResultCreate):
             )
 
         metrics_payload = {
-    "session_id": result.session_id,
-    "total_trials": result.total_trials,
-    "completed_trials": total_hits,
-    "correct_trials": total_hits,
-    "omitted_trials": omitted_trials,
-    "omissions_left": omissions_left,
-    "omissions_right": omissions_right,
+            "session_id": result.session_id,
 
-    # Unity actualmente no mide estas métricas
-    "mean_detection_latency_ms": None,
-    "mean_first_fixation_latency_ms": None,
-    "mean_search_time_ms": None,
-    "exploration_bias_score": None,
-    "extinction_index": None,
-    "neglect_severity_score": None,
+            # Totales generales
+            "total_trials": result.total_trials,
+            "completed_trials": total_hits,
+            "correct_trials": total_hits,
+            "omitted_trials": omitted_trials,
 
-    # Métricas que sí vienen de Unity
-    "detection_rate": detection_rate_percent,
-    "precision_left": precision_left_percent,
-    "precision_right": precision_right_percent,
-}
+            # Omisiones por lado
+            "omissions_left": omissions_left,
+            "omissions_right": omissions_right,
+
+            # Detecciones y totales por lado recibidos desde Unity
+            "hit_left": result.hit_left,
+            "hit_right": result.hit_right,
+            "total_left": result.total_left,
+            "total_right": result.total_right,
+
+            "mean_detection_latency_ms": result.mean_detection_latency_ms,
+
+            # Métricas porcentuales para el frontend
+            "detection_rate": detection_rate_percent,
+            "precision_left": precision_left_percent,
+            "precision_right": precision_right_percent,
+        }
+
+        print("RESULTADO RECIBIDO DESDE UNITY:")
+        print(result)
+
+        print("PAYLOAD QUE SE GUARDA EN session_metrics:")
+        print(metrics_payload)
 
         metrics_response = (
             supabase.table("session_metrics")

@@ -22,14 +22,18 @@ export type SessionMetric = {
   incidents: string | null;
   notes: string | null;
 
-  meanDetection: number;
-  omissionsLeft: number;
-  omissionsRight: number;
-  explorationBias: number;
-  detectionRate: number;
-  precisionLeft: number;
-  precisionCenter: number;
-  precisionRight: number;
+  meanDetection: number | null;
+
+  omissionsLeft: number | null;
+  omissionsRight: number | null;
+  detectionRate: number | null;
+  precisionLeft: number | null;
+  precisionRight: number | null;
+
+  totalLeft: number | null;
+  totalRight: number | null;
+  leftDetections: number | null;
+  rightDetections: number | null;
 };
 
 type MetricsPanelProps = {
@@ -37,31 +41,51 @@ type MetricsPanelProps = {
   loading?: boolean;
 };
 
+function isValidNumber(value: number | null | undefined): value is number {
+  return typeof value === "number" && !Number.isNaN(value);
+}
+
+function formatPercent(value: number | null | undefined) {
+  if (!isValidNumber(value)) return "--";
+
+  const rounded = Number(value.toFixed(1));
+  return `${rounded}%`;
+}
+
+function formatNumber(value: number | null | undefined) {
+  if (!isValidNumber(value)) return "--";
+  return value;
+}
+
+function formatMs(value: number | null | undefined) {
+  if (!isValidNumber(value)) return "--";
+  return `${Math.round(value)} ms`;
+}
+
+function getAverage(
+  data: SessionMetric[],
+  key: keyof Pick<
+    SessionMetric,
+    "detectionRate" | "precisionLeft" | "precisionRight" | "meanDetection"
+  >
+) {
+  const validValues = data.map((item) => item[key]).filter(isValidNumber);
+
+  if (validValues.length === 0) return null;
+
+  return validValues.reduce((acc, value) => acc + value, 0) / validValues.length;
+}
+
 export default function MetricsPanel({
   data,
   loading = false,
 }: MetricsPanelProps) {
   const latest = data.length > 0 ? data[data.length - 1] : null;
 
-  const avgDetectionRate =
-    data.length > 0
-      ? data.reduce((acc, item) => acc + item.detectionRate, 0) / data.length
-      : 0;
-
-  const avgPrecisionLeft =
-    data.length > 0
-      ? data.reduce((acc, item) => acc + item.precisionLeft, 0) / data.length
-      : 0;
-
-  const avgPrecisionCenter =
-    data.length > 0
-      ? data.reduce((acc, item) => acc + item.precisionCenter, 0) / data.length
-      : 0;
-
-  const avgPrecisionRight =
-    data.length > 0
-      ? data.reduce((acc, item) => acc + item.precisionRight, 0) / data.length
-      : 0;
+  const avgDetectionRate = getAverage(data, "detectionRate");
+  const avgPrecisionLeft = getAverage(data, "precisionLeft");
+  const avgPrecisionRight = getAverage(data, "precisionRight");
+  const avgMeanDetection = getAverage(data, "meanDetection");
 
   if (loading) {
     return (
@@ -73,114 +97,107 @@ export default function MetricsPanel({
 
   return (
     <div className="w-full space-y-6">
+      {/* HEADER */}
       <div>
         <h2 className="text-2xl font-semibold text-gray-800">Evolución</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Análisis clínico y evolución del rendimiento por sesión
+          Tendencia del rendimiento clínico del paciente a lo largo de las
+          sesiones registradas.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Tiempo medio de reacción</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? `${Math.round(latest.meanDetection)} ms` : "--"}
+      {/* RESUMEN DE LA ÚLTIMA SESIÓN */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Última sesión registrada
           </h3>
+          <p className="text-sm text-gray-500">
+            Valores principales de la sesión más reciente con métricas válidas.
+          </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Tasa de detección</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? `${latest.detectionRate.toFixed(1)}%` : "--"}
-          </h3>
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+          <SummaryCard
+            title="Tasa de detección"
+            value={latest ? formatPercent(latest.detectionRate) : "--"}
+          />
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Omisiones izquierda</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? latest.omissionsLeft : "--"}
-          </h3>
-        </div>
+          <SummaryCard
+            title="Tiempo medio detección"
+            value={latest ? formatMs(latest.meanDetection) : "--"}
+          />
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Omisiones derecha</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? latest.omissionsRight : "--"}
-          </h3>
-        </div>
-      </div>
+          <SummaryCard
+            title="Omisiones izquierda"
+            value={latest ? String(formatNumber(latest.omissionsLeft)) : "--"}
+          />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Precisión izquierda</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? `${latest.precisionLeft.toFixed(1)}%` : "--"}
-          </h3>
-        </div>
+          <SummaryCard
+            title="Omisiones derecha"
+            value={latest ? String(formatNumber(latest.omissionsRight)) : "--"}
+          />
 
-    
+          <SummaryCard
+            title="Precisión izquierda"
+            value={latest ? formatPercent(latest.precisionLeft) : "--"}
+          />
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Precisión derecha</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? `${latest.precisionRight.toFixed(1)}%` : "--"}
-          </h3>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <p className="text-sm text-gray-500">Sesgo exploratorio</p>
-          <h3 className="text-2xl font-bold text-gray-800 mt-2">
-            {latest ? latest.explorationBias.toFixed(2) : "--"}
-          </h3>
+          <SummaryCard
+            title="Precisión derecha"
+            value={latest ? formatPercent(latest.precisionRight) : "--"}
+          />
         </div>
       </div>
 
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-800">
+            Métricas resumidas
+          </h3>
+          <p className="text-sm text-gray-500">
+            Promedios globales calculados sobre las sesiones con métricas
+            válidas.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <SummaryCard
+            title="Precisión media izquierda"
+            value={formatPercent(avgPrecisionLeft)}
+          />
+
+          <SummaryCard
+            title="Precisión media derecha"
+            value={formatPercent(avgPrecisionRight)}
+          />
+
+          <SummaryCard
+            title="Tasa media de detección"
+            value={formatPercent(avgDetectionRate)}
+          />
+
+          <SummaryCard
+            title="Tiempo medio detección"
+            value={formatMs(avgMeanDetection)}
+          />
+        </div>
+      </div>
+
+      {/* GRÁFICAS DE EVOLUCIÓN */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">
-              Evolución del tiempo de reacción
-            </h3>
-            <p className="text-sm text-gray-500">
-              Comparación del tiempo medio por sesión
-            </p>
-          </div>
-
-          <div className="w-full h-[300px]">
-            {data.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="sessionLabel" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="meanDetection"
-                    name="Tiempo reacción"
-                    strokeWidth={3}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                No hay datos disponibles
-              </div>
-            )}
-          </div>
-        </div>
-
+        {/* TASA DE DETECCIÓN */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-gray-800">
               Tasa de detección por sesión
             </h3>
             <p className="text-sm text-gray-500">
-              Evolución del porcentaje de detección
+              Evolución del porcentaje de estímulos detectados.
             </p>
           </div>
 
-          <div className="w-full h-[300px]">
+          <div className="w-full h-[320px]">
             {data.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data}>
@@ -191,61 +208,101 @@ export default function MetricsPanel({
                   <Line
                     type="monotone"
                     dataKey="detectionRate"
-                    name="Tasa detección"
+                    name="Tasa de detección"
                     strokeWidth={3}
                   />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                No hay datos disponibles
-              </div>
+              <EmptyChartMessage />
             )}
           </div>
         </div>
 
+        {/* TIEMPO MEDIO DE DETECCIÓN */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Tiempo medio de detección
+            </h3>
+            <p className="text-sm text-gray-500">
+              Evolución del tiempo medio de respuesta por sesión.
+            </p>
+          </div>
+
+          <div className="w-full h-[320px]">
+            {data.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="sessionLabel" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line
+                    type="monotone"
+                    dataKey="meanDetection"
+                    name="Tiempo medio detección"
+                    strokeWidth={3}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChartMessage />
+            )}
+          </div>
+        </div>
+
+        {/* OMISIONES POR LADO */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-gray-800">
               Omisiones por lado
             </h3>
             <p className="text-sm text-gray-500">
-              Comparativa izquierda vs derecha por sesión
+              Comparativa de omisiones izquierda y derecha por sesión.
             </p>
           </div>
 
-          <div className="w-full h-[300px]">
+          <div className="w-full h-[320px]">
             {data.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="sessionLabel" />
-                  <YAxis />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="omissionsLeft" name="Izquierda" />
-                  <Bar dataKey="omissionsRight" name="Derecha" />
+                  <Bar
+  dataKey="omissionsLeft"
+  name="Izquierda"
+  fill="#14b8a6"
+/>
+
+<Bar
+  dataKey="omissionsRight"
+  name="Derecha"
+  fill="#6366f1"
+/>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                No hay datos disponibles
-              </div>
+              <EmptyChartMessage />
             )}
           </div>
         </div>
 
+        {/* PRECISIÓN POR LADO */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-gray-800">
               Precisión por lado visual
             </h3>
             <p className="text-sm text-gray-500">
-              Comparativa izquierda y derecha
+              Comparativa de precisión izquierda y derecha por sesión.
             </p>
           </div>
 
-          <div className="w-full h-[300px]">
+          <div className="w-full h-[320px]">
             {data.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={data}>
@@ -254,53 +311,50 @@ export default function MetricsPanel({
                   <YAxis domain={[0, 100]} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="precisionLeft" name="Izquierda" />
-                  <Bar dataKey="precisionRight" name="Derecha" />
+               <Bar
+  dataKey="precisionLeft"
+  name="Izquierda"
+  fill="#14b8a6"
+/>
+
+<Bar
+  dataKey="precisionRight"
+  name="Derecha"
+  fill="#6366f1"
+/>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-sm text-gray-400">
-                No hay datos disponibles
-              </div>
+              <EmptyChartMessage />
             )}
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-gray-800">
-            Métricas resumidas
-          </h3>
-          <p className="text-sm text-gray-500">
-            Promedio global del rendimiento acumulado
-          </p>
-        </div>
+      {/* PROMEDIOS GLOBALES */}
+      
+    </div>
+  );
+}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <p className="text-sm text-gray-500">Precisión media izquierda</p>
-            <p className="text-xl font-semibold text-gray-800 mt-1">
-              {data.length > 0 ? `${avgPrecisionLeft.toFixed(1)}%` : "--"}
-            </p>
-          </div>
+type SummaryCardProps = {
+  title: string;
+  value: string;
+};
 
+function SummaryCard({ title, value }: SummaryCardProps) {
+  return (
+    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+      <p className="text-sm text-gray-500">{title}</p>
+      <p className="text-2xl font-semibold text-gray-800 mt-2">{value}</p>
+    </div>
+  );
+}
 
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-            <p className="text-sm text-gray-500">Precisión media derecha</p>
-            <p className="text-xl font-semibold text-gray-800 mt-1">
-              {data.length > 0 ? `${avgPrecisionRight.toFixed(1)}%` : "--"}
-            </p>
-          </div>
-
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 md:col-span-3">
-            <p className="text-sm text-gray-500">Tasa media de detección</p>
-            <p className="text-xl font-semibold text-gray-800 mt-1">
-              {data.length > 0 ? `${avgDetectionRate.toFixed(1)}%` : "--"}
-            </p>
-          </div>
-        </div>
-      </div>
+function EmptyChartMessage() {
+  return (
+    <div className="h-full flex items-center justify-center text-sm text-gray-400">
+      No hay datos disponibles
     </div>
   );
 }

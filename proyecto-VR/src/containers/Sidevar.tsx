@@ -8,12 +8,9 @@ type Props = {
 export default function SidebarMenu({ setView }: Props) {
   const navigate = useNavigate();
 
-  const baseItemClass =
-    "w-full text-left px-4 py-2 rounded transition";
-  const activeItemClass =
-    "hover:bg-gray-100 text-gray-700";
-  const disabledItemClass =
-    "text-gray-400 cursor-not-allowed";
+  const baseItemClass = "w-full text-left px-4 py-2 rounded transition";
+  const activeItemClass = "hover:bg-gray-100 text-gray-700";
+  const disabledItemClass = "text-gray-400 cursor-not-allowed";
 
   const handleLogout = async () => {
     try {
@@ -37,10 +34,14 @@ export default function SidebarMenu({ setView }: Props) {
         <h6 className="text-blue-600 text-sm font-semibold px-4 mb-2">
           Dashboard
         </h6>
+
         <ul className="space-y-1">
           <li>
             <button
-              onClick={() => setView("dashboard")}
+              onClick={() => {
+                setView("dashboard");
+                navigate("/inicio");
+              }}
               className={`${baseItemClass} ${activeItemClass} font-medium`}
             >
               Resumen general
@@ -54,18 +55,26 @@ export default function SidebarMenu({ setView }: Props) {
         <h6 className="text-blue-600 text-sm font-semibold px-4 mb-2">
           Pacientes
         </h6>
+
         <ul className="space-y-1">
           <li>
             <button
-              onClick={() => setView("patients")}
+              onClick={() => {
+                setView("patients");
+                navigate("/inicio/listaPacientes");
+              }}
               className={`${baseItemClass} ${activeItemClass}`}
             >
               Lista de pacientes
             </button>
           </li>
+
           <li>
             <button
-              onClick={() => setView("createPatient")}
+              onClick={() => {
+                setView("createPatient");
+                navigate("/inicio/anadirPaciente");
+              }}
               className={`${baseItemClass} ${activeItemClass}`}
             >
               Añadir paciente
@@ -79,28 +88,22 @@ export default function SidebarMenu({ setView }: Props) {
         <h6 className="text-blue-600 text-sm font-semibold px-4 mb-2">
           Rehabilitación
         </h6>
+
         <ul className="space-y-1">
           <li>
-            <button
-              disabled
-              className={`${baseItemClass} ${disabledItemClass}`}
-            >
+            <button disabled className={`${baseItemClass} ${disabledItemClass}`}>
               Sesiones de hoy
             </button>
           </li>
+
           <li>
-            <button
-              disabled
-              className={`${baseItemClass} ${disabledItemClass}`}
-            >
+            <button disabled className={`${baseItemClass} ${disabledItemClass}`}>
               Agenda / programadas
             </button>
           </li>
+
           <li>
-            <button
-              disabled
-              className={`${baseItemClass} ${disabledItemClass}`}
-            >
+            <button disabled className={`${baseItemClass} ${disabledItemClass}`}>
               Acceso rápido a ejercicios
             </button>
           </li>
@@ -112,20 +115,16 @@ export default function SidebarMenu({ setView }: Props) {
         <h6 className="text-blue-600 text-sm font-semibold px-4 mb-2">
           Resultados
         </h6>
+
         <ul className="space-y-1">
           <li>
-            <button
-              disabled
-              className={`${baseItemClass} ${disabledItemClass}`}
-            >
+            <button disabled className={`${baseItemClass} ${disabledItemClass}`}>
               Comparativas globales
             </button>
           </li>
+
           <li>
-            <button
-              disabled
-              className={`${baseItemClass} ${disabledItemClass}`}
-            >
+            <button disabled className={`${baseItemClass} ${disabledItemClass}`}>
               Estadísticas por paciente / grupo
             </button>
           </li>
@@ -137,15 +136,14 @@ export default function SidebarMenu({ setView }: Props) {
         <h6 className="text-blue-600 text-sm font-semibold px-4 mb-2">
           Cuenta
         </h6>
+
         <ul className="space-y-1">
           <li>
-            <button
-              disabled
-              className={`${baseItemClass} ${disabledItemClass}`}
-            >
+            <button disabled className={`${baseItemClass} ${disabledItemClass}`}>
               Mi perfil
             </button>
           </li>
+
           <li>
             <button
               onClick={handleLogout}

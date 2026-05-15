@@ -21,49 +21,21 @@ type SessionRow = {
 };
 
 type SessionMetricsRow = {
-  total_trials: number;
-  completed_trials: number;
-  correct_trials: number;
-  omitted_trials: number;
-  omissions_left: number;
-  omissions_right: number;
-  mean_first_fixation_latency_ms: number | null;
+  total_trials: number | null;
+  completed_trials: number | null;
+  correct_trials: number | null;
+  omitted_trials: number | null;
+  omissions_left: number | null;
+  omissions_right: number | null;
   mean_detection_latency_ms: number | null;
-  mean_search_time_ms: number | null;
-  left_dwell_ratio: number | null;
-  right_dwell_ratio: number | null;
-  exploration_bias_score: number | null;
-  extinction_index: number | null;
-  neglect_severity_score: number | null;
   detection_rate: number | null;
   precision_left: number | null;
   precision_right: number | null;
-};
 
-type SessionConfigRow = {
-  difficulty: string | null;
-  planned_stimuli: number | null;
-  spatial_distribution: string | null;
-  dynamic_adaptation: boolean | null;
-  device: string | null;
-  target_duration_seconds: number | null;
-};
-
-type TrialRow = {
-  id: string;
-  trial_number: number;
-  exercise_type: string;
-  stimulus_type: string;
-  stimulus_side: string | null;
-  target_label: string | null;
-  started_at: string;
-  ended_at: string | null;
-  detected: boolean | null;
-  correct: boolean | null;
-  omitted: boolean | null;
-  assistance_used: boolean | null;
-  assistance_type: string | null;
-  response_label: string | null;
+  hit_left: number | null;
+  hit_right: number | null;
+  total_left: number | null;
+  total_right: number | null;
 };
 
 type SessionDetailData = {
@@ -79,18 +51,25 @@ type SessionDetailData = {
   omissionsRight: number | null;
   explorationBias: number | null;
   parameters: { label: string; value: string | number }[];
-  metrics: {
-    totalStimuli: number;
-    detectedStimuli: number;
-    missedStimuli: number;
-    leftDetections: number;
-    rightDetections: number;
-    centerDetections: number;
-    reactionTimeMin: number | null;
-    reactionTimeMax: number | null;
-    fixationCount: number;
-    accuracy: number | null;
-  };
+
+metrics: {
+  totalStimuli: number;
+  detectedStimuli: number;
+  missedStimuli: number;
+
+  totalLeft: number;
+  totalRight: number;
+  leftDetections: number;
+  rightDetections: number;
+
+  centerDetections: number;
+  reactionTimeMin: number | null;
+  reactionTimeMax: number | null;
+  fixationCount: number;
+  accuracy: number | null;
+  precisionLeft: number | null;
+  precisionRight: number | null;
+};
   events: {
     id: string;
     time: string;
@@ -115,7 +94,9 @@ export default function PatientProfileContainer({
 }: PatientProfileContainerProps) {
   const [activeTab, setActiveTab] = useState<PatientTab>("details");
   const [sessionView, setSessionView] = useState<SessionView>("list");
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null
+  );
 
   const [latestSession, setLatestSession] = useState<SessionRow | null>(null);
   const [loadingLatestSession, setLoadingLatestSession] = useState(false);
@@ -167,19 +148,6 @@ export default function PatientProfileContainer({
     }
   };
 
-  const formatStimulusSide = (side: string | null) => {
-    switch (side) {
-      case "left":
-        return "Izquierda";
-      case "right":
-        return "Derecha";
-      case "bilateral":
-        return "Bilateral";
-      default:
-        return "No especificado";
-    }
-  };
-
   const formatDateTime = (value: string | null) => {
     if (!value) return "No disponible";
 
@@ -198,17 +166,6 @@ export default function PatientProfileContainer({
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
-  const formatTargetDuration = (seconds: number | null) => {
-    if (seconds == null) return "No especificado";
-
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-
-    if (mins > 0 && secs > 0) return `${mins} min ${secs} s`;
-    if (mins > 0) return `${mins} min`;
-    return `${secs} s`;
-  };
-
   const latestSessionLabel = useMemo(() => {
     if (loadingLatestSession) return "Cargando...";
     if (!latestSession) return "Sin sesiones";
@@ -222,7 +179,9 @@ export default function PatientProfileContainer({
 
       const { data, error } = await supabase
         .from("sessions")
-        .select("id, started_at, session_type, duration_seconds, score, incidents, notes")
+        .select(
+          "id, started_at, session_type, duration_seconds, score, incidents, notes"
+        )
         .eq("patient_id", patient.id)
         .order("started_at", { ascending: false })
         .limit(1)
@@ -250,70 +209,37 @@ export default function PatientProfileContainer({
 
       setLoadingSessionDetail(true);
 
-      const [sessionRes, metricsRes, configRes, trialsRes] = await Promise.all([
+      const [sessionRes, metricsRes] = await Promise.all([
         supabase
           .from("sessions")
-          .select("id, started_at, session_type, duration_seconds, score, incidents, notes")
+          .select(
+            "id, started_at, session_type, duration_seconds, score, incidents, notes"
+          )
           .eq("id", selectedSessionId)
           .maybeSingle(),
 
         supabase
           .from("session_metrics")
-          .select(`
+          .select(
+            `
             total_trials,
             completed_trials,
             correct_trials,
             omitted_trials,
             omissions_left,
             omissions_right,
-            mean_first_fixation_latency_ms,
             mean_detection_latency_ms,
-            mean_search_time_ms,
-            left_dwell_ratio,
-            right_dwell_ratio,
-            exploration_bias_score,
-            extinction_index,
-            neglect_severity_score,
             detection_rate,
             precision_left,
-            precision_right
-          `)
+            precision_right,
+            hit_left,
+            hit_right,
+            total_left,
+            total_right
+          `
+          )
           .eq("session_id", selectedSessionId)
           .maybeSingle(),
-
-        supabase
-          .from("session_config")
-          .select(`
-            difficulty,
-            planned_stimuli,
-            spatial_distribution,
-            dynamic_adaptation,
-            device,
-            target_duration_seconds
-          `)
-          .eq("session_id", selectedSessionId)
-          .maybeSingle(),
-
-        supabase
-          .from("trials")
-          .select(`
-            id,
-            trial_number,
-            exercise_type,
-            stimulus_type,
-            stimulus_side,
-            target_label,
-            started_at,
-            ended_at,
-            detected,
-            correct,
-            omitted,
-            assistance_used,
-            assistance_type,
-            response_label
-          `)
-          .eq("session_id", selectedSessionId)
-          .order("trial_number", { ascending: true }),
       ]);
 
       if (sessionRes.error) {
@@ -327,18 +253,9 @@ export default function PatientProfileContainer({
         console.error("Error cargando métricas de sesión:", metricsRes.error);
       }
 
-      if (configRes.error) {
-        console.error("Error cargando configuración de sesión:", configRes.error);
-      }
-
-      if (trialsRes.error) {
-        console.error("Error cargando trials:", trialsRes.error);
-      }
-
       const session = sessionRes.data as SessionRow | null;
-      const sessionMetrics = (metricsRes.data as SessionMetricsRow | null) ?? null;
-      const sessionConfig = (configRes.data as SessionConfigRow | null) ?? null;
-      const trials = (trialsRes.data as TrialRow[] | null) ?? [];
+      const sessionMetrics =
+        (metricsRes.data as SessionMetricsRow | null) ?? null;
 
       if (!session) {
         setSelectedSessionDetail(null);
@@ -346,145 +263,107 @@ export default function PatientProfileContainer({
         return;
       }
 
-      const leftDetections = trials.filter(
-        (trial) => trial.stimulus_side === "left" && trial.detected === true
-      ).length;
+      const totalStimuli = sessionMetrics?.total_trials ?? 0;
 
-      const rightDetections = trials.filter(
-        (trial) => trial.stimulus_side === "right" && trial.detected === true
-      ).length;
-
-      const centerDetections = trials.filter(
-        (trial) => trial.stimulus_side === "center" && trial.detected === true
-      ).length;
-
-      const bilateralDetections = trials.filter(
-        (trial) => trial.stimulus_side === "bilateral" && trial.detected === true
-      ).length;
-
-      const totalDetected =
-        leftDetections + rightDetections + centerDetections + bilateralDetections;
-
-      const totalStimuli =
-        sessionMetrics?.total_trials ??
-        sessionConfig?.planned_stimuli ??
-        trials.length;
+      const detectedStimuli =
+        sessionMetrics?.completed_trials ??
+        sessionMetrics?.correct_trials ??
+        Math.max(totalStimuli - (sessionMetrics?.omitted_trials ?? 0), 0);
 
       const missedStimuli =
         sessionMetrics?.omitted_trials ??
-        trials.filter((trial) => trial.omitted === true).length;
+        Math.max(totalStimuli - detectedStimuli, 0);
+
+      const totalLeft = sessionMetrics?.total_left ?? 0;
+      const totalRight = sessionMetrics?.total_right ?? 0;
+      const leftDetections = sessionMetrics?.hit_left ?? 0;
+      const rightDetections = sessionMetrics?.hit_right ?? 0;
 
       const accuracy =
         sessionMetrics?.detection_rate != null
           ? Number(sessionMetrics.detection_rate)
           : totalStimuli > 0
-            ? Number(((totalDetected / totalStimuli) * 100).toFixed(2))
+            ? Number(((detectedStimuli / totalStimuli) * 100).toFixed(2))
             : null;
 
-      const uniqueExerciseTypes = [...new Set(trials.map((trial) => trial.exercise_type))];
-      const uniqueStimulusTypes = [...new Set(trials.map((trial) => trial.stimulus_type))];
-
       const parameters: { label: string; value: string | number }[] = [
-        { label: "Tipo de sesión", value: formatSessionType(session.session_type) },
         {
-          label: "Dificultad",
-          value: sessionConfig?.difficulty ?? "No especificado",
+          label: "Tipo de sesión",
+          value: formatSessionType(session.session_type),
         },
         {
-          label: "Número de estímulos planificados",
-          value: sessionConfig?.planned_stimuli ?? "No especificado",
+          label: "Duración real",
+          value: formatDurationClock(session.duration_seconds),
         },
         {
-          label: "Distribución espacial",
-          value: sessionConfig?.spatial_distribution ?? "No especificado",
+          label: "Total de estímulos",
+          value: totalStimuli,
         },
         {
-          label: "Adaptación dinámica",
-          value:
-            sessionConfig?.dynamic_adaptation == null
-              ? "No especificado"
-              : sessionConfig.dynamic_adaptation
-                ? "Sí"
-                : "No",
+          label: "Estímulos completados",
+          value: detectedStimuli,
         },
         {
-          label: "Dispositivo",
-          value: sessionConfig?.device ?? "No especificado",
+          label: "Omisiones",
+          value: missedStimuli,
         },
         {
-          label: "Duración objetivo",
-          value: formatTargetDuration(sessionConfig?.target_duration_seconds ?? null),
+          label: "Soles generados izquierda",
+          value: totalLeft,
         },
         {
-          label: "Ejercicios usados",
-          value: uniqueExerciseTypes.join(", ") || "No disponible",
+          label: "Soles clicados izquierda",
+          value: leftDetections,
         },
         {
-          label: "Tipos de estímulo",
-          value: uniqueStimulusTypes.join(", ") || "No disponible",
+          label: "Soles generados derecha",
+          value: totalRight,
         },
         {
-          label: "Asistencia usada",
-          value: trials.some((trial) => trial.assistance_used) ? "Sí" : "No",
+          label: "Soles clicados derecha",
+          value: rightDetections,
         },
       ];
 
-      const events = trials.map((trial) => {
-        let result = "Sin registrar";
-        if (trial.omitted) result = "Omisión";
-        else if (trial.detected) result = "Detectado";
-        else if (trial.correct === false) result = "Incorrecto";
-
-        const detailsParts: string[] = [];
-
-        if (trial.assistance_used) {
-          detailsParts.push(`Asistencia: ${trial.assistance_type || "Sí"}`);
-        }
-
-        if (trial.response_label) {
-          detailsParts.push(`Respuesta: ${trial.response_label}`);
-        }
-
-        if (trial.target_label) {
-          detailsParts.push(`Objetivo: ${trial.target_label}`);
-        }
-
-        return {
-          id: trial.id,
-          time: formatDurationClock(trial.trial_number - 1),
-          eventType: trial.exercise_type,
-          position: formatStimulusSide(trial.stimulus_side),
-          result,
-          details: detailsParts.join(" · ") || "Sin detalles",
-        };
-      });
-
       const detailData: SessionDetailData = {
         sessionId: session.id,
-        sessionLabel: `Sesión ${new Date(session.started_at).toLocaleDateString("es-ES")}`,
+        sessionLabel: `Sesión ${new Date(
+          session.started_at
+        ).toLocaleDateString("es-ES")}`,
         startedAt: session.started_at,
         sessionType: session.session_type,
         durationSeconds: session.duration_seconds,
         score: session.score != null ? Number(session.score) : null,
         incidents: session.incidents,
+
         meanDetection: sessionMetrics?.mean_detection_latency_ms ?? null,
         omissionsLeft: sessionMetrics?.omissions_left ?? null,
         omissionsRight: sessionMetrics?.omissions_right ?? null,
-        explorationBias: sessionMetrics?.exploration_bias_score ?? null,
+        explorationBias: null,
+
         parameters,
+
         metrics: {
-          totalStimuli,
-          detectedStimuli: totalDetected,
-          missedStimuli,
-          leftDetections,
-          rightDetections,
-          centerDetections,
-          reactionTimeMin: null,
-          reactionTimeMax: null,
-          fixationCount: 0,
-          accuracy,
-        },
-        events,
+  totalStimuli,
+  detectedStimuli,
+  missedStimuli,
+
+  totalLeft,
+  totalRight,
+  leftDetections,
+  rightDetections,
+
+  centerDetections: 0,
+  reactionTimeMin: null,
+  reactionTimeMax: null,
+  fixationCount: 0,
+  accuracy,
+  precisionLeft: sessionMetrics?.precision_left ?? null,
+  precisionRight: sessionMetrics?.precision_right ?? null,
+},
+
+        events: [],
+
         doctorNotes: session.notes,
       };
 
@@ -522,7 +401,9 @@ export default function PatientProfileContainer({
         return <PatientDetailsContainer patient={patient} />;
 
       case "metrics":
-        return <PatientMetricsContainer patientId={patient.id} mode="metrics" />;
+        return (
+          <PatientMetricsContainer patientId={patient.id} mode="metrics" />
+        );
 
       case "sessions":
         if (sessionView === "detail" && selectedSessionId) {
@@ -604,12 +485,7 @@ export default function PatientProfileContainer({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={() => onStartSession?.(patient)}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition font-medium"
-            >
-              Nueva sesión VR
-            </button>
+            
 
             <button
               onClick={onBack}

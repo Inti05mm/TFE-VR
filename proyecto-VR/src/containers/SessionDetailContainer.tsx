@@ -26,18 +26,25 @@ type SessionDetailData = {
   explorationBias: number | null;
 
   parameters?: SessionParameter[];
+
   metrics?: {
     totalStimuli?: number | null;
     detectedStimuli?: number | null;
     missedStimuli?: number | null;
+
+    totalLeft?: number | null;
+    totalRight?: number | null;
     leftDetections?: number | null;
     rightDetections?: number | null;
-    centerDetections?: number | null;
+
     reactionTimeMin?: number | null;
     reactionTimeMax?: number | null;
-    fixationCount?: number | null;
+
     accuracy?: number | null;
+    precisionLeft?: number | null;
+    precisionRight?: number | null;
   };
+
   events?: SessionEvent[];
   doctorNotes?: string | null;
 };
@@ -96,6 +103,10 @@ export default function SessionDetailContainer({
     if (score === null || score === undefined) return "-";
     return Number(score).toFixed(1);
   };
+  const formatPercent = (value: number | null | undefined) => {
+  if (value === null || value === undefined || Number.isNaN(value)) return "-";
+  return `${Number(value).toFixed(2)}%`;
+};
 
   const formatValue = (
     value: string | number | null | undefined,
@@ -107,6 +118,7 @@ export default function SessionDetailContainer({
 
   const parseIncidents = (incidents: string | null) => {
     if (!incidents || incidents.trim() === "") return [];
+
     return incidents
       .split(/[\n,;]+/)
       .map((item) => item.trim())
@@ -152,9 +164,11 @@ export default function SessionDetailContainer({
               <span className="bg-gray-100 px-3 py-1 rounded-full">
                 {formatDateTime(session.startedAt)}
               </span>
+
               <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
                 {formatSessionType(session.sessionType)}
               </span>
+
               <span className="bg-gray-100 px-3 py-1 rounded-full">
                 Duración: {formatDuration(session.durationSeconds)}
               </span>
@@ -164,7 +178,7 @@ export default function SessionDetailContainer({
           <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 min-w-[180px]">
             <p className="text-sm text-blue-700 font-medium">Puntuación final</p>
             <p className="text-3xl font-bold text-blue-800 mt-1">
-              {formatScore((session.score)*2)}
+              {session.score != null ? formatScore(session.score * 2) : "-"}
             </p>
           </div>
         </div>
@@ -183,37 +197,22 @@ export default function SessionDetailContainer({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-4">
           <SummaryCard title="Puntuación" value={formatScore(session.score)} />
-          <SummaryCard
-            title="Detección media"
-            value={formatValue(
-              session.meanDetection !== null &&
-                session.meanDetection !== undefined
-                ? Math.round(session.meanDetection)
-                : null,
-              " ms"
-            )}
-          />
+
+          
+
           <SummaryCard
             title="Omisiones izq."
             value={formatValue(session.omissionsLeft)}
           />
+
           <SummaryCard
             title="Omisiones der."
             value={formatValue(session.omissionsRight)}
           />
-          <SummaryCard
-            title="Bias exploratorio"
-            value={formatValue(
-              session.explorationBias !== null &&
-                session.explorationBias !== undefined
-                ? session.explorationBias.toFixed(2)
-                : null
-            )}
-          />
-          <SummaryCard
-            title="Incidencias"
-            value={String(incidentsList.length)}
-          />
+
+        
+
+          <SummaryCard title="Incidencias" value={String(incidentsList.length)} />
         </div>
       </div>
 
@@ -270,97 +269,72 @@ export default function SessionDetailContainer({
                 <th className="py-3 pr-4 font-semibold">Valor</th>
               </tr>
             </thead>
+
             <tbody className="text-sm text-gray-700">
               <MetricRow
                 label="Estímulos totales"
                 value={formatValue(session.metrics?.totalStimuli)}
               />
+
               <MetricRow
                 label="Estímulos detectados"
                 value={formatValue(session.metrics?.detectedStimuli)}
               />
+
               <MetricRow
                 label="Estímulos omitidos"
                 value={formatValue(session.metrics?.missedStimuli)}
               />
+
               <MetricRow
-                label="Detecciones en lado izquierdo"
+                label="Soles generados en lado izquierdo"
+                value={formatValue(session.metrics?.totalLeft)}
+              />
+
+              <MetricRow
+                label="Soles clicados en lado izquierdo"
                 value={formatValue(session.metrics?.leftDetections)}
               />
+
               <MetricRow
-                label="Detecciones en lado derecho"
+                label="Soles generados en lado derecho"
+                value={formatValue(session.metrics?.totalRight)}
+              />
+
+              <MetricRow
+                label="Soles clicados en lado derecho"
                 value={formatValue(session.metrics?.rightDetections)}
               />
-              <MetricRow
-                label="Detecciones en zona central"
-                value={formatValue(session.metrics?.centerDetections)}
-              />
+
               <MetricRow
                 label="Tiempo de reacción mínimo"
                 value={formatValue(session.metrics?.reactionTimeMin, " ms")}
               />
+
               <MetricRow
                 label="Tiempo de reacción máximo"
                 value={formatValue(session.metrics?.reactionTimeMax, " ms")}
               />
+
               <MetricRow
-                label="Número de fijaciones"
-                value={formatValue(session.metrics?.fixationCount)}
-              />
-              <MetricRow
-                label="Precisión"
-                value={formatValue(session.metrics?.accuracy, "%")}
-              />
+  label="Precisión izquierda"
+  value={formatPercent(session.metrics?.precisionLeft)}
+/>
+
+<MetricRow
+  label="Precisión derecha"
+  value={formatPercent(session.metrics?.precisionRight)}
+/>
+
+<MetricRow
+  label="Tasa de detección global"
+  value={formatPercent(session.metrics?.accuracy)}
+/>
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* EVENTOS DEL JUEGO */}
-      <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-6">
-        <div className="mb-5">
-          <h3 className="text-xl font-semibold text-gray-800">
-            Eventos del juego
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Secuencia de eventos relevantes registrados durante la sesión.
-          </p>
-        </div>
-
-        {session.events && session.events.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse min-w-[850px]">
-              <thead>
-                <tr className="border-b border-gray-200 text-left text-sm text-gray-500">
-                  <th className="py-3 pr-4 font-semibold">Tiempo</th>
-                  <th className="py-3 pr-4 font-semibold">Evento</th>
-                  <th className="py-3 pr-4 font-semibold">Posición</th>
-                  <th className="py-3 pr-4 font-semibold">Resultado</th>
-                  <th className="py-3 pr-4 font-semibold">Detalle</th>
-                </tr>
-              </thead>
-              <tbody>
-                {session.events.map((event) => (
-                  <tr
-                    key={event.id}
-                    className="border-b border-gray-100 text-sm text-gray-700"
-                  >
-                    <td className="py-3 pr-4 font-medium">{event.time}</td>
-                    <td className="py-3 pr-4">{event.eventType}</td>
-                    <td className="py-3 pr-4">{formatValue(event.position)}</td>
-                    <td className="py-3 pr-4">{formatValue(event.result)}</td>
-                    <td className="py-3 pr-4">{formatValue(event.details)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400">
-            No hay eventos registrados para esta sesión.
-          </p>
-        )}
-      </div>
 
       {/* INCIDENCIAS Y OBSERVACIONES */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

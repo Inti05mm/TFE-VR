@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabase/supabaseClient";
 
 export type Patient = {
@@ -25,6 +26,8 @@ export default function ListaPacientes({
   onViewPatient,
   onStartSession,
 }: ListaPacientesProps) {
+  const navigate = useNavigate();
+
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -79,6 +82,11 @@ export default function ListaPacientes({
       patient.dni.toLowerCase().includes(searchDni.toLowerCase())
     );
   });
+
+  const handleViewPatient = (patient: Patient) => {
+    onViewPatient(patient);
+    navigate(`/inicio/listaPacientes/${patient.id}`);
+  };
 
   const formatNeglectSide = (side: Patient["neglect_side"]) => {
     switch (side) {
@@ -171,9 +179,7 @@ export default function ListaPacientes({
                 <th className="px-4 py-3 font-semibold">Lado neglect</th>
                 <th className="px-4 py-3 font-semibold">Severidad</th>
                 <th className="px-4 py-3 font-semibold">Fecha alta</th>
-                <th className="px-4 py-3 font-semibold text-center">
-                  Acción
-                </th>
+              
               </tr>
             </thead>
 
@@ -186,34 +192,35 @@ export default function ListaPacientes({
                   <td className="px-4 py-3 text-gray-800">
                     {patient.first_name}
                   </td>
+
                   <td className="px-4 py-3 text-gray-800">
                     {patient.last_name || "-"}
                   </td>
+
                   <td className="px-4 py-3 text-gray-800">{patient.dni}</td>
+
                   <td className="px-4 py-3 text-gray-800">
                     {formatNeglectSide(patient.neglect_side)}
                   </td>
+
                   <td className="px-4 py-3 text-gray-800">
                     {formatSeverity(patient.severity)}
                   </td>
+
                   <td className="px-4 py-3 text-gray-800">
                     {formatDate(patient.created_at)}
                   </td>
+
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button
-                        onClick={() => onViewPatient(patient)}
+                        onClick={() => handleViewPatient(patient)}
                         className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
                       >
                         Ver
                       </button>
 
-                      <button
-                        onClick={() => onStartSession(patient)}
-                        className="bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
-                      >
-                        Iniciar sesión
-                      </button>
+                      
                     </div>
                   </td>
                 </tr>

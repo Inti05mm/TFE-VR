@@ -1,16 +1,34 @@
 from typing import Optional
+from datetime import datetime, timedelta, timezone
+import secrets
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, HTTPException, Query
+
 from .supabase_client import supabase
 from .schemas import (
     PatientCreate,
     PatientLogin,
     SessionStartCreate,
     SessionResultCreate,
+    QRSessionCreate,
 )
 
 
 app = FastAPI(title="NeuroVision API")
+
+
+# ─────────────────────────────────────────
+# CONFIGURACIÓN RED LOCAL
+# ─────────────────────────────────────────
+
+COMPUTER_IP = "10.16.86.146"
+
+FRONTEND_PORT = "5173"
+BACKEND_PORT = "8000"
+
+FRONTEND_BASE_URL = f"http://{COMPUTER_IP}:{FRONTEND_PORT}"
+BACKEND_BASE_URL = f"http://{COMPUTER_IP}:{BACKEND_PORT}"
 
 
 app.add_middleware(
@@ -18,7 +36,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://192.168.1.133:5173",
+        "http://10.16.86.146:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -112,8 +130,8 @@ def create_patient(patient: PatientCreate):
 
 
 # ─────────────────────────────────────────
-# LOGIN PARA UNITY
-# BackendManager.cs llama a: POST /patients/login
+# LOGIN PACIENTE
+# Frontend llama a: POST /patients/login
 # ─────────────────────────────────────────
 
 @app.post("/patients/login")
@@ -153,8 +171,163 @@ def login_patient(login: PatientLogin):
 
 
 # ─────────────────────────────────────────
-# CREAR SESIÓN PARA UNITY
-# BackendManager.cs llama a: POST /sessions
+# SESIÓN TEMPORAL QR PARA ABRIR WEBGL EN GAFAS
+# Frontend llama a: POST /qr-sessions
+# Unity/WebGL valida con: GET /qr-sessions/{token}
+# ─────────────────────────────────────────
+
+@app.post("/qr-sessions")
+def create_qr_session(data: QRSessionCreate):
+    try:
+        # 1. Comprobar que el paciente existe
+        patient_response = (
+            supabase.table("patients")
+            .select("id, first_name, last_name, neglect_side, severity, doctor_id")
+            .eq("id", data.patient_id)
+            .execute()
+        )
+
+        if not patient_response.data:
+            raise HTTPException(status_code=404, detail="Paciente no encontrado")
+
+        patient = patient_response.data[0]
+
+        # 2. Crear token temporal seguro
+        token = secrets.token_urlsafe(24)
+
+        # 3. Caducidad del QR
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+        # 4. URL que abrirán las gafas
+        game_url = f"neurovision://session?qr_token={token}"
+
+        # 5. Guardar en Supabase
+        payload = {
+            "token": token,
+            "patient_id": patient["id"],
+            "doctor_id": patient.get("doctor_id"),
+            "game_url": game_url,
+            "used": False,
+            "expires_at": expires_at.isoformat(),
+        }
+
+        qr_response = supabase.table("qr_sessions").insert(payload).execute()
+
+        if not qr_response.data:
+            raise HTTPException(
+                status_code=400,
+                detail="No se pudo crear la sesión QR",
+            )
+
+        return {
+            "message": "Sesión QR creada correctamente",
+            "qr_token": token,
+            "game_url": game_url,
+            "expires_at": expires_at.isoformat(),
+            "patient": {
+                "id": patient["id"],
+                "first_name": patient["first_name"],
+                "last_name": patient.get("last_name"),
+                "neglect_side": patient.get("neglect_side") or "left",
+                "severity": patient.get("severity") or 1,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al crear sesión QR: {str(e)}",
+        )
+
+
+@app.get("/qr-sessions/{token}")
+def validate_qr_session(token: str):
+    try:
+        # 1. Buscar token en qr_sessions
+        qr_response = (
+            supabase.table("qr_sessions")
+            .select("id, token, patient_id, doctor_id, used, expires_at")
+            .eq("token", token)
+            .execute()
+        )
+
+        if not qr_response.data:
+            raise HTTPException(
+                status_code=404,
+                detail="Token QR no encontrado",
+            )
+
+        qr_session = qr_response.data[0]
+
+        # 2. Comprobar si ya fue usado
+        if qr_session.get("used"):
+            raise HTTPException(
+                status_code=401,
+                detail="Este QR ya ha sido usado",
+            )
+
+        # 3. Comprobar caducidad
+        expires_at_raw = qr_session["expires_at"]
+        expires_at = datetime.fromisoformat(
+            expires_at_raw.replace("Z", "+00:00")
+        )
+
+        now = datetime.now(timezone.utc)
+
+        if expires_at < now:
+            raise HTTPException(
+                status_code=401,
+                detail="El QR ha caducado",
+            )
+
+        # 4. Obtener paciente asociado
+        patient_response = (
+            supabase.table("patients")
+            .select("id, first_name, last_name, dni, neglect_side, severity, doctor_id")
+            .eq("id", qr_session["patient_id"])
+            .execute()
+        )
+
+        if not patient_response.data:
+            raise HTTPException(
+                status_code=404,
+                detail="Paciente asociado al QR no encontrado",
+            )
+
+        patient = patient_response.data[0]
+
+        # Para pruebas NO marcamos el QR como usado.
+        # Cuando funcione todo, puedes activar esto:
+        #
+        # supabase.table("qr_sessions").update(
+        #     {"used": True}
+        # ).eq("token", token).execute()
+
+        return {
+            "valid": True,
+            "qr_session_id": qr_session["id"],
+            "patient_id": patient["id"],
+            "first_name": patient["first_name"],
+            "last_name": patient.get("last_name"),
+            "neglect_side": patient.get("neglect_side") or "left",
+            "severity": patient.get("severity") or 1,
+            "doctor_id": patient.get("doctor_id"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al validar sesión QR: {str(e)}",
+        )
+
+
+# ─────────────────────────────────────────
+# CREAR SESIÓN REAL DEL EJERCICIO
+# Unity llama a: POST /sessions
 # Unity espera recibir: { "session_id": "..." }
 # ─────────────────────────────────────────
 
@@ -202,7 +375,7 @@ def create_session(session: SessionStartCreate):
 
 # ─────────────────────────────────────────
 # GUARDAR RESULTADOS DE UNITY
-# BackendManager.cs llama a: POST /sessions/results
+# Unity llama a: POST /sessions/results
 # ─────────────────────────────────────────
 
 @app.post("/sessions/results")

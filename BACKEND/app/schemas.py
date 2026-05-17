@@ -24,19 +24,16 @@ class PatientCreate(BaseModel):
     doctor_id: Optional[str] = None
 
 
-# Login que usa Unity en BackendManager.cs
 class PatientLogin(BaseModel):
     dni: str
     password: str
 
 
-# Unity crea una sesión al iniciar el nivel
 class SessionStartCreate(BaseModel):
     patient_id: str
     session_type: str = "vr_assessment"
 
 
-# Unity manda los resultados al terminar el nivel
 class SessionResultCreate(BaseModel):
     session_id: str
     patient_id: str
@@ -49,9 +46,13 @@ class SessionResultCreate(BaseModel):
     total_left: int
     total_right: int
 
-    # Unity los manda en formato 0-1
     detection_rate: float
     precision_left: float
     precision_right: float
 
     mean_detection_latency_ms: float | None = None
+
+
+# NUEVO: crear sesión temporal para QR
+class QRSessionCreate(BaseModel):
+    patient_id: str

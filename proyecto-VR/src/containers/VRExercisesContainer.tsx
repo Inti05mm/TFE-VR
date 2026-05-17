@@ -1,9 +1,5 @@
 import { useState } from "react";
-
-type VRExercisesContainerProps = {
-  patientId: string;
-  patientName?: string;
-};
+import { QRCodeCanvas } from "qrcode.react";
 
 type Exercise = {
   id: string;
@@ -14,14 +10,36 @@ type Exercise = {
   available: boolean;
 };
 
-export default function VRExercisesContainer({
-  patientId,
-  patientName,
-}: VRExercisesContainerProps) {
+type LoggedPatient = {
+  patient_id: string;
+  first_name: string;
+  last_name?: string;
+  neglect_side?: string;
+  severity?: number;
+};
+
+const API_URL = "http://10.16.86.146:8000";
+const WEBGL_URL = "http://10.16.86.146:5173/web3/index.html";
+
+export default function VRExercisesContainer() {
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(
     null
   );
-  const [unityOpen, setUnityOpen] = useState(false);
+
+  const [showLogin, setShowLogin] = useState(false);
+
+  const [dni, setDni] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [patient, setPatient] = useState<LoggedPatient | null>(null);
+
+  const [unityUrl, setUnityUrl] = useState("");
+  const [qrToken, setQrToken] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+
+  const [loadingLogin, setLoadingLogin] = useState(false);
+  const [loadingQR, setLoadingQR] = useState(false);
+  const [error, setError] = useState("");
 
   const exercises: Exercise[] = [
     {
@@ -51,12 +69,119 @@ export default function VRExercisesContainer({
     }
 
     setSelectedExercise(exercise);
-    setUnityOpen(true);
+    setShowLogin(true);
+
+    setPatient(null);
+    setUnityUrl("");
+    setQrToken("");
+    setExpiresAt("");
+    setError("");
+    setDni("");
+    setPassword("");
   };
 
-  const unityUrl = selectedExercise
-    ? "http://localhost:5173/web3/index.html"
-    : "";
+  const loginAndCreateQR = async () => {
+    if (!selectedExercise) {
+      return;
+    }
+
+    try {
+      setLoadingLogin(true);
+      setLoadingQR(false);
+      setError("");
+      setUnityUrl("");
+      setQrToken("");
+      setExpiresAt("");
+      setPatient(null);
+
+      /*
+        1. Login del paciente
+        Endpoint existente en tu backend:
+        POST /patients/login
+      */
+      const loginResponse = await fetch(`${API_URL}/patients/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dni,
+          password,
+        }),
+      });
+
+      if (!loginResponse.ok) {
+        const errorData = await loginResponse.json();
+        throw new Error(errorData.detail || "DNI o contraseña incorrectos");
+      }
+
+      const loginData: LoggedPatient = await loginResponse.json();
+
+      setPatient(loginData);
+      setLoadingLogin(false);
+      setLoadingQR(true);
+
+      /*
+        2. Crear sesión QR temporal
+        Endpoint nuevo:
+        POST /qr-sessions
+      */
+      const qrResponse = await fetch(`${API_URL}/qr-sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: loginData.patient_id,
+        }),
+      });
+
+      if (!qrResponse.ok) {
+        const errorData = await qrResponse.json();
+        throw new Error(errorData.detail || "No se pudo generar el QR");
+      }
+
+      const qrData = await qrResponse.json();
+
+      const token = qrData.qr_token;
+
+      /*
+        URL final que se mete dentro del QR.
+        Las gafas abrirán esta URL.
+      */
+    const finalUnityUrl = `neurovision://session?qr_token=${encodeURIComponent(token)}`;
+
+      setQrToken(token);
+      setUnityUrl(finalUnityUrl);
+      setExpiresAt(qrData.expires_at);
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Error desconocido al iniciar el ejercicio");
+      }
+    } finally {
+      setLoadingLogin(false);
+      setLoadingQR(false);
+    }
+  };
+
+  const closeFlow = () => {
+    setSelectedExercise(null);
+    setShowLogin(false);
+
+    setDni("");
+    setPassword("");
+    setPatient(null);
+
+    setUnityUrl("");
+    setQrToken("");
+    setExpiresAt("");
+    setError("");
+
+    setLoadingLogin(false);
+    setLoadingQR(false);
+  };
 
   return (
     <div className="w-full space-y-6">
@@ -66,18 +191,18 @@ export default function VRExercisesContainer({
         </h2>
 
         <p className="text-sm text-gray-500 mt-1">
-          Selecciona un ejercicio para iniciar una sesión VR del paciente.
+          Selecciona un ejercicio, inicia sesión con el paciente y genera un QR
+          para abrir el juego en las gafas.
         </p>
 
-        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <p className="text-sm text-blue-800">
-            Paciente seleccionado:{" "}
-            <span className="font-semibold">{patientName || patientId}</span>
-          </p>
-        </div>
+        {error && (
+          <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-4">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
       </div>
 
-      {!unityOpen && (
+      {!showLogin && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {exercises.map((exercise) => {
             return (
@@ -136,7 +261,7 @@ export default function VRExercisesContainer({
         </div>
       )}
 
-      {unityOpen && selectedExercise && (
+      {showLogin && selectedExercise && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between gap-4 mb-5">
             <div>
@@ -145,29 +270,159 @@ export default function VRExercisesContainer({
               </h3>
 
               <p className="text-sm text-gray-500">
-                Sesión preparada para el paciente seleccionado.
+                Inicia sesión con el paciente para generar el QR de acceso a las
+                gafas.
               </p>
             </div>
 
             <button
-              onClick={() => {
-                setUnityOpen(false);
-                setSelectedExercise(null);
-              }}
+              onClick={closeFlow}
               className="px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition"
             >
               Cerrar
             </button>
           </div>
 
-          <iframe
-            src={unityUrl}
-            className="w-full h-[760px] rounded-2xl border border-gray-200 bg-black"
-            title="Unity VR Exercise"
-            allow="fullscreen; autoplay; xr-spatial-tracking; gyroscope; accelerometer"
-          />
+          {!unityUrl && (
+            <div className="max-w-md space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  DNI
+                </label>
 
-          <p className="text-xs font-mono break-all mt-2">{unityUrl}</p>
+                <input
+                  type="text"
+                  value={dni}
+                  onChange={(e) => setDni(e.target.value)}
+                  placeholder="Introduce el DNI"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contraseña
+                </label>
+
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Introduce la contraseña"
+                  className="w-full border border-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <button
+                onClick={loginAndCreateQR}
+                disabled={loadingLogin || loadingQR || !dni || !password}
+                className={`w-full font-medium py-2.5 rounded-xl transition ${
+                  loadingLogin || loadingQR || !dni || !password
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                }`}
+              >
+                {loadingLogin
+                  ? "Validando paciente..."
+                  : loadingQR
+                  ? "Generando QR..."
+                  : "Crear QR para gafas"}
+              </button>
+            </div>
+          )}
+
+          {unityUrl && patient && (
+            <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
+              <div className="border border-gray-200 rounded-2xl p-5 flex flex-col items-center">
+                <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                  QR para las gafas
+                </h4>
+
+                <p className="text-sm text-gray-500 text-center mb-4">
+                  Escanea este QR desde las gafas para abrir el juego con este
+                  paciente.
+                </p>
+
+                <QRCodeCanvas
+                  value={unityUrl}
+                  size={240}
+                  level="H"
+                  includeMargin={true}
+                />
+
+                {expiresAt && (
+                  <p className="text-xs text-gray-500 mt-4">
+                    Caduca: {new Date(expiresAt).toLocaleString()}
+                  </p>
+                )}
+
+                <p className="text-xs font-mono break-all mt-3 text-gray-500">
+                  Token: {qrToken}
+                </p>
+              </div>
+
+              <div className="border border-gray-200 rounded-2xl p-5">
+                <h4 className="text-lg font-semibold text-gray-800">
+                  Sesión preparada
+                </h4>
+
+                <div className="mt-4 space-y-2 text-sm">
+                  <p>
+                    <span className="font-medium text-gray-700">
+                      Paciente:
+                    </span>{" "}
+                    <span className="text-gray-600">
+                      {patient.first_name} {patient.last_name ?? ""}
+                    </span>
+                  </p>
+
+                  <p>
+                    <span className="font-medium text-gray-700">
+                      Ejercicio:
+                    </span>{" "}
+                    <span className="text-gray-600">
+                      {selectedExercise.title}
+                    </span>
+                  </p>
+
+                  <p>
+                    <span className="font-medium text-gray-700">
+                      Lado neglect:
+                    </span>{" "}
+                    <span className="text-gray-600">
+                      {patient.neglect_side ?? "left"}
+                    </span>
+                  </p>
+
+                  <p>
+                    <span className="font-medium text-gray-700">
+                      Severidad:
+                    </span>{" "}
+                    <span className="text-gray-600">
+                      {patient.severity ?? 1}
+                    </span>
+                  </p>
+                </div>
+
+                <div className="mt-5 bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <p className="text-xs text-gray-500 mb-1">
+                    URL generada:
+                  </p>
+
+                  <p className="text-xs font-mono break-all text-gray-700">
+                    {unityUrl}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => window.open(unityUrl, "_blank")}
+                  className="mt-5 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition"
+                >
+                  Abrir también en este ordenador
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

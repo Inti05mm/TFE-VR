@@ -18,7 +18,7 @@ type LoggedPatient = {
   severity?: number;
 };
 
-const API_URL = "http://192.168.1.39:8000";
+const API_URL = "http://10.40.14.94:8000";
 const WEBGL_URL = "http://10.16.86.146:5173/web3/index.html";
 
 export default function VRExercisesContainer() {
@@ -149,7 +149,7 @@ export default function VRExercisesContainer() {
         URL final que se mete dentro del QR.
         Las gafas abrirán esta URL.
       */
-    const finalUnityUrl = `neurovision://session?qr_token=${encodeURIComponent(token)}`;
+    const finalUnityUrl = `http://10.40.14.94:5173/open-session?qr_token=${encodeURIComponent(token)}`;
 
       setQrToken(token);
       setUnityUrl(finalUnityUrl);

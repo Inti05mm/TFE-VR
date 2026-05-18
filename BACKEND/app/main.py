@@ -22,7 +22,7 @@ app = FastAPI(title="NeuroVision API")
 # CONFIGURACIÓN RED LOCAL
 # ─────────────────────────────────────────
 
-COMPUTER_IP = "192.168.1.39"
+COMPUTER_IP = "10.40.14.94"
 
 FRONTEND_PORT = "5173"
 BACKEND_PORT = "8000"
@@ -36,7 +36,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://192.168.1.39:5173",
+        "http://10.40.14.94:5173",
     ],
     allow_credentials=True,
     allow_methods=["*"],

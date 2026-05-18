@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import MedicalUI from "./containers/MedicalUI";
 import Inicio from "./Pages/Inicio";
+import OpenSession from "./containers/OpenSession";
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
         <Route path="/" element={<MedicalUI />} />
 
         <Route path="/inicio" element={<Inicio />} />
+        <Route path="/open-session" element={<OpenSession />} />  
         <Route path="/inicio/listaPacientes" element={<Inicio />} />
         <Route path="/inicio/anadirPaciente" element={<Inicio />} />
 

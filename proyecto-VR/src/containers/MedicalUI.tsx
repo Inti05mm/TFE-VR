@@ -41,6 +41,11 @@ type LoginFormData = {
   password: string;
 };
 
+type PatientLoginFormData = {
+  dni: string;
+  password: string;
+};
+
 type InfoCardProps = {
   title: string;
   text: string;
@@ -58,7 +63,7 @@ type AuthVisualProps = {
 };
 
 const DOCTOR_HOME_ROUTE = "/inicio";
-const PATIENT_HOME_ROUTE = "/patient-home";
+const PATIENT_HOME_ROUTE = "/paciente";
 
 export default function MedicalUI() {
   const [area, setArea] = useState<UserArea>("doctor");
@@ -73,9 +78,7 @@ export default function MedicalUI() {
         <div className="grid grid-cols-1 items-stretch md:grid-cols-2">
           <div
             className={`transition-transform duration-700 ease-in-out ${
-              area === "doctor"
-                ? "md:translate-x-0"
-                : "md:translate-x-full"
+              area === "doctor" ? "md:translate-x-0" : "md:translate-x-full"
             }`}
           >
             <AuthVisual area={area} onSwitchArea={handleSwitchArea} />
@@ -83,9 +86,7 @@ export default function MedicalUI() {
 
           <div
             className={`transition-transform duration-700 ease-in-out ${
-              area === "doctor"
-                ? "md:translate-x-0"
-                : "md:-translate-x-full"
+              area === "doctor" ? "md:translate-x-0" : "md:-translate-x-full"
             }`}
           >
             <AuthPanel area={area} />
@@ -162,7 +163,7 @@ function AuthVisual({ area, onSwitchArea }: AuthVisualProps) {
             <>
               <InfoCard title="Seguimiento" text="Evolución clínica" />
               <InfoCard title="Sesiones" text="Historial personal" />
-              <InfoCard title="Acceso seguro" text="Credenciales médicas" />
+              <InfoCard title="Acceso seguro" text="DNI y contraseña" />
             </>
           )}
         </div>
@@ -379,8 +380,8 @@ function PatientLoginForm() {
   const navigate = useNavigate();
 
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState<LoginFormData>({
-    email: "",
+  const [form, setForm] = useState<PatientLoginFormData>({
+    dni: "",
     password: "",
   });
   const [loading, setLoading] = useState(false);
@@ -401,53 +402,54 @@ function PatientLoginForm() {
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (!form.email.trim() || !form.password.trim()) {
-      setErrorMsg("Introduce el correo y la contraseña.");
+    if (!form.dni.trim() || !form.password.trim()) {
+      setErrorMsg("Introduce el DNI y la contraseña.");
       return;
     }
 
     try {
       setLoading(true);
 
-      const normalizedEmail = form.email.trim().toLowerCase();
+      const normalizedDni = form.dni.trim().toLowerCase();
+      const normalizedPassword = form.password.trim();
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: form.password,
-      });
-
-      if (error) {
-        setErrorMsg("Correo o contraseña incorrectos.");
-        return;
-      }
-
-      const userId = data.user?.id;
-
-      if (!userId) {
-        setErrorMsg("No se pudo iniciar sesión.");
-        return;
-      }
-
-      const { data: patientProfile, error: profileError } = await supabase
+      const { data: patientProfile, error } = await supabase
         .from("patients")
-        .select("id")
-        .eq("auth_user_id", userId)
+        .select(
+          "id, first_name, last_name, dni, neglect_side, severity, doctor_id"
+        )
+        .ilike("dni", normalizedDni)
+        .eq("password", normalizedPassword)
         .maybeSingle();
 
-      if (profileError) {
-        setErrorMsg("Error al comprobar el perfil del paciente.");
-        await supabase.auth.signOut();
+      if (error) {
+        setErrorMsg("Error al comprobar los datos del paciente.");
+        console.error(error);
         return;
       }
 
       if (!patientProfile) {
-        setErrorMsg("Esta cuenta no pertenece al área paciente.");
-        await supabase.auth.signOut();
+        setErrorMsg("DNI o contraseña incorrectos.");
         return;
       }
 
+      localStorage.setItem("patient_id", patientProfile.id);
+      localStorage.setItem("patient_dni", patientProfile.dni);
+      localStorage.setItem(
+        "patient_name",
+        `${patientProfile.first_name ?? ""} ${
+          patientProfile.last_name ?? ""
+        }`.trim()
+      );
+
       setSuccessMsg("Inicio de sesión correcto.");
-      navigate(PATIENT_HOME_ROUTE);
+
+      navigate(PATIENT_HOME_ROUTE, {
+        state: {
+          patientId: patientProfile.id,
+          patient: patientProfile,
+        },
+      });
     } catch (error) {
       setErrorMsg("Ha ocurrido un error al iniciar sesión.");
       console.error(error);
@@ -466,19 +468,19 @@ function PatientLoginForm() {
           Acceso del paciente
         </h2>
         <p className="mt-3 text-sm leading-6 text-slate-400">
-          Accede para consultar tu seguimiento y tus sesiones de rehabilitación.
+          Accede con tu DNI y la contraseña asignada por tu médico.
         </p>
       </div>
 
       <form className="space-y-5" onSubmit={handleLogin}>
         <InputField
-          label="Correo electrónico"
-          name="email"
-          value={form.email}
+          label="DNI / NIE"
+          name="dni"
+          value={form.dni}
           onChange={handleChange}
-          placeholder="paciente@email.com"
-          type="email"
-          icon={<Mail className="h-5 w-5" />}
+          placeholder="12345678A"
+          type="text"
+          icon={<BadgeCheck className="h-5 w-5" />}
         />
 
         <InputField

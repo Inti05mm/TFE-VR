@@ -52,24 +52,25 @@ type SessionDetailData = {
   explorationBias: number | null;
   parameters: { label: string; value: string | number }[];
 
-metrics: {
-  totalStimuli: number;
-  detectedStimuli: number;
-  missedStimuli: number;
+  metrics: {
+    totalStimuli: number;
+    detectedStimuli: number;
+    missedStimuli: number;
 
-  totalLeft: number;
-  totalRight: number;
-  leftDetections: number;
-  rightDetections: number;
+    totalLeft: number;
+    totalRight: number;
+    leftDetections: number;
+    rightDetections: number;
 
-  centerDetections: number;
-  reactionTimeMin: number | null;
-  reactionTimeMax: number | null;
-  fixationCount: number;
-  accuracy: number | null;
-  precisionLeft: number | null;
-  precisionRight: number | null;
-};
+    centerDetections: number;
+    reactionTimeMin: number | null;
+    reactionTimeMax: number | null;
+    fixationCount: number;
+    accuracy: number | null;
+    precisionLeft: number | null;
+    precisionRight: number | null;
+  };
+
   events: {
     id: string;
     time: string;
@@ -78,6 +79,7 @@ metrics: {
     result: string;
     details: string;
   }[];
+
   doctorNotes: string | null;
 };
 
@@ -85,14 +87,32 @@ type PatientProfileContainerProps = {
   patient: Patient;
   onBack: () => void;
   onStartSession?: (patient: Patient) => void;
+
+  /**
+   * Props para modo paciente.
+   * Si activeTabExternal existe, el tab se controla desde fuera,
+   * por ejemplo desde SidebarPaciente.
+   */
+  activeTabExternal?: PatientTab;
+  setActiveTabExternal?: (tab: PatientTab) => void;
+  hidePatientTabs?: boolean;
+  isPatientView?: boolean;
 };
 
 export default function PatientProfileContainer({
   patient,
   onBack,
   onStartSession,
+  activeTabExternal,
+  setActiveTabExternal,
+  hidePatientTabs = false,
+  isPatientView = false,
 }: PatientProfileContainerProps) {
-  const [activeTab, setActiveTab] = useState<PatientTab>("details");
+  const [internalActiveTab, setInternalActiveTab] =
+    useState<PatientTab>("details");
+
+  const activeTab = activeTabExternal ?? internalActiveTab;
+
   const [sessionView, setSessionView] = useState<SessionView>("list");
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
     null
@@ -344,23 +364,23 @@ export default function PatientProfileContainer({
         parameters,
 
         metrics: {
-  totalStimuli,
-  detectedStimuli,
-  missedStimuli,
+          totalStimuli,
+          detectedStimuli,
+          missedStimuli,
 
-  totalLeft,
-  totalRight,
-  leftDetections,
-  rightDetections,
+          totalLeft,
+          totalRight,
+          leftDetections,
+          rightDetections,
 
-  centerDetections: 0,
-  reactionTimeMin: null,
-  reactionTimeMax: null,
-  fixationCount: 0,
-  accuracy,
-  precisionLeft: sessionMetrics?.precision_left ?? null,
-  precisionRight: sessionMetrics?.precision_right ?? null,
-},
+          centerDetections: 0,
+          reactionTimeMin: null,
+          reactionTimeMax: null,
+          fixationCount: 0,
+          accuracy,
+          precisionLeft: sessionMetrics?.precision_left ?? null,
+          precisionRight: sessionMetrics?.precision_right ?? null,
+        },
 
         events: [],
 
@@ -386,7 +406,12 @@ export default function PatientProfileContainer({
   };
 
   const handleChangeTab = (tab: PatientTab) => {
-    setActiveTab(tab);
+    if (setActiveTabExternal) {
+      setActiveTabExternal(tab);
+      localStorage.setItem("patient_active_tab", tab);
+    } else {
+      setInternalActiveTab(tab);
+    }
 
     if (tab !== "sessions") {
       setSessionView("list");
@@ -398,7 +423,12 @@ export default function PatientProfileContainer({
   const renderTabContent = () => {
     switch (activeTab) {
       case "details":
-        return <PatientDetailsContainer patient={patient} />;
+  return (
+    <PatientDetailsContainer
+      patient={patient}
+      isPatientView={isPatientView}
+    />
+  );
 
       case "metrics":
         return (
@@ -448,12 +478,14 @@ export default function PatientProfileContainer({
         );
 
       case "vr":
-        return (
-          <VRExercisesContainer
-            patientId={patient.id}
-            patientName={`${patient.first_name} ${patient.last_name || ""}`}
-          />
-        );
+  return (
+    <VRExercisesContainer
+      patientId={patient.id}
+      patientName={`${patient.first_name} ${patient.last_name || ""}`}
+      patientNeglectSide={patient.neglect_side}
+      patientSeverity={patient.severity}
+    />
+  );
 
       default:
         return null;
@@ -473,31 +505,51 @@ export default function PatientProfileContainer({
               <span className="bg-gray-100 px-3 py-1 rounded-full">
                 Severidad: {formatSeverity(patient.severity)}
               </span>
+
               <span className="bg-gray-100 px-3 py-1 rounded-full">
                 Lado afectado: {formatNeglectSide(patient.neglect_side)}
               </span>
+
               <span className="bg-gray-100 px-3 py-1 rounded-full">
                 Última sesión: {latestSessionLabel}
               </span>
             </div>
 
-            <p className="text-gray-500 mt-4">Vista general del paciente</p>
+            <p className="text-gray-500 mt-4">
+              {isPatientView
+                ? "Vista general de tu seguimiento"
+                : "Vista general del paciente"}
+            </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            
+          {!isPatientView && (
+            <div className="flex flex-wrap gap-3">
+              {onStartSession && (
+                <button
+                  onClick={() => onStartSession(patient)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition font-medium"
+                >
+                  Iniciar sesión
+                </button>
+              )}
 
-            <button
-              onClick={onBack}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition font-medium"
-            >
-              Volver a pacientes
-            </button>
-          </div>
+              <button
+                onClick={onBack}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg transition font-medium"
+              >
+                Volver a pacientes
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      <PatientViewHeader activeTab={activeTab} onChangeTab={handleChangeTab} />
+      {!hidePatientTabs && (
+        <PatientViewHeader
+          activeTab={activeTab}
+          onChangeTab={handleChangeTab}
+        />
+      )}
 
       <div className="transition-all duration-300 ease-in-out animate-fadeIn">
         {renderTabContent()}

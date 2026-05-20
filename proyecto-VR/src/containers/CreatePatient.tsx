@@ -5,10 +5,11 @@ type PatientFormData = {
   firstName: string;
   lastName: string;
   dni: string;
-  password: string;
-  confirmPassword: string;
+  birthDate: string;
+  sex: "male" | "female" | "other" | "";
   neglectSide: "left" | "right" | "bilateral" | "";
   severity: "1" | "2" | "3";
+  clinicalNotes: string;
 };
 
 export default function CreatePatient() {
@@ -16,10 +17,11 @@ export default function CreatePatient() {
     firstName: "",
     lastName: "",
     dni: "",
-    password: "",
-    confirmPassword: "",
+    birthDate: "",
+    sex: "",
     neglectSide: "",
     severity: "1",
+    clinicalNotes: "",
   });
 
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ export default function CreatePatient() {
   const [successMsg, setSuccessMsg] = useState("");
 
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
 
@@ -35,6 +37,19 @@ export default function CreatePatient() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const resetForm = () => {
+    setForm({
+      firstName: "",
+      lastName: "",
+      dni: "",
+      birthDate: "",
+      sex: "",
+      neglectSide: "",
+      severity: "1",
+      clinicalNotes: "",
+    });
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -49,16 +64,6 @@ export default function CreatePatient() {
 
     if (!form.dni.trim()) {
       setErrorMsg("El DNI es obligatorio.");
-      return;
-    }
-
-    if (!form.password.trim()) {
-      setErrorMsg("La contraseña es obligatoria.");
-      return;
-    }
-
-    if (form.password !== form.confirmPassword) {
-      setErrorMsg("Las contraseñas no coinciden.");
       return;
     }
 
@@ -79,9 +84,11 @@ export default function CreatePatient() {
         first_name: form.firstName.trim(),
         last_name: form.lastName.trim() || null,
         dni: form.dni.trim(),
-        password: form.password,
+        birth_date: form.birthDate || null,
+        sex: form.sex || null,
         neglect_side: form.neglectSide || null,
         severity: Number(form.severity) || 1,
+        clinical_notes: form.clinicalNotes.trim() || null,
         doctor_id: user.id,
       });
 
@@ -90,16 +97,7 @@ export default function CreatePatient() {
       }
 
       setSuccessMsg("Paciente creado correctamente.");
-
-      setForm({
-        firstName: "",
-        lastName: "",
-        dni: "",
-        password: "",
-        confirmPassword: "",
-        neglectSide: "",
-        severity: "1",
-      });
+      resetForm();
     } catch (error: any) {
       setErrorMsg(error.message || "Error al crear el paciente.");
     } finally {
@@ -107,8 +105,18 @@ export default function CreatePatient() {
     }
   };
 
+  const sectionHeader = (title: string, subtitle: string) => (
+    <div className="mb-8 rounded-2xl border border-gray-200 bg-gray-100 px-6 py-5">
+      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+      <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+    </div>
+  );
+
+  const inputClass =
+    "bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-white outline-blue-500 transition-all border border-transparent focus:border-blue-300";
+
   return (
-    <div className="max-w-4xl max-sm:max-w-lg mx-auto p-6 mt-6">
+    <div className="max-w-5xl max-sm:max-w-lg mx-auto p-6 mt-6">
       <div className="text-center mb-12 sm:mb-16">
         <h2 className="text-3xl font-semibold text-slate-900">
           Registrar paciente
@@ -119,17 +127,22 @@ export default function CreatePatient() {
       </div>
 
       <form onSubmit={handleSubmit}>
+        {sectionHeader(
+          "Datos personales",
+          "Información básica identificativa del paciente."
+        )}
+
         <div className="grid sm:grid-cols-2 gap-8">
           <div>
             <label className="text-slate-900 text-sm font-medium mb-2 block">
-              Nombre
+              Nombre *
             </label>
             <input
               name="firstName"
               type="text"
               value={form.firstName}
               onChange={handleChange}
-              className="bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-transparent outline-blue-500 transition-all"
+              className={inputClass}
               placeholder="Introduce el nombre"
             />
           </div>
@@ -143,25 +156,64 @@ export default function CreatePatient() {
               type="text"
               value={form.lastName}
               onChange={handleChange}
-              className="bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-transparent outline-blue-500 transition-all"
+              className={inputClass}
               placeholder="Introduce los apellidos"
             />
           </div>
 
           <div>
             <label className="text-slate-900 text-sm font-medium mb-2 block">
-              DNI
+              DNI *
             </label>
             <input
               name="dni"
               type="text"
               value={form.dni}
               onChange={handleChange}
-              className="bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-transparent outline-blue-500 transition-all"
+              className={inputClass}
               placeholder="Introduce el DNI"
             />
           </div>
 
+          <div>
+            <label className="text-slate-900 text-sm font-medium mb-2 block">
+              Fecha de nacimiento
+            </label>
+            <input
+              name="birthDate"
+              type="date"
+              value={form.birthDate}
+              onChange={handleChange}
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className="text-slate-900 text-sm font-medium mb-2 block">
+              Sexo
+            </label>
+            <select
+              name="sex"
+              value={form.sex}
+              onChange={handleChange}
+              className={inputClass}
+            >
+              <option value="">Selecciona una opción</option>
+              <option value="male">Masculino</option>
+              <option value="female">Femenino</option>
+              <option value="other">Otro</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-12">
+          {sectionHeader(
+            "Información clínica",
+            "Datos clínicos asociados al seguimiento y a las sesiones VR."
+          )}
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-8">
           <div>
             <label className="text-slate-900 text-sm font-medium mb-2 block">
               Lado de negligencia
@@ -170,7 +222,7 @@ export default function CreatePatient() {
               name="neglectSide"
               value={form.neglectSide}
               onChange={handleChange}
-              className="bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-transparent outline-blue-500 transition-all"
+              className={inputClass}
             >
               <option value="">Selecciona una opción</option>
               <option value="left">Izquierda</option>
@@ -187,7 +239,7 @@ export default function CreatePatient() {
               name="severity"
               value={form.severity}
               onChange={handleChange}
-              className="bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-transparent outline-blue-500 transition-all"
+              className={inputClass}
             >
               <option value="1">1 - Leve</option>
               <option value="2">2 - Moderado</option>
@@ -195,31 +247,17 @@ export default function CreatePatient() {
             </select>
           </div>
 
-          <div>
-            <label className="text-slate-900 text-sm font-medium mb-2 block">
-              Contraseña
-            </label>
-            <input
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              className="bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-transparent outline-blue-500 transition-all"
-              placeholder="Introduce la contraseña"
-            />
-          </div>
-
           <div className="sm:col-span-2">
             <label className="text-slate-900 text-sm font-medium mb-2 block">
-              Confirmar contraseña
+              Notas clínicas / observaciones
             </label>
-            <input
-              name="confirmPassword"
-              type="password"
-              value={form.confirmPassword}
+            <textarea
+              name="clinicalNotes"
+              value={form.clinicalNotes}
               onChange={handleChange}
-              className="bg-slate-100 w-full text-slate-900 text-sm px-4 py-3 rounded-md focus:bg-transparent outline-blue-500 transition-all"
-              placeholder="Repite la contraseña"
+              rows={4}
+              className={`${inputClass} resize-none`}
+              placeholder="Añade observaciones clínicas relevantes..."
             />
           </div>
         </div>
